@@ -104,17 +104,57 @@ def convert_hook_to_viewmodel(hook: dict, full_source: str) -> str:
     body = hook["body"]
     lines = []
 
+    # Extract useState calls -> properties
+    state_vars = extract_use_state(body)
+
+    # Detect if this ViewModel does async data fetching
+    inner_functions = extract_inner_functions(body)
+    api_calls = extract_api_calls_from_body(body)
+    effects = extract_use_effects(body)
+    has_async_data = bool(api_calls) or any(f["is_async"] for f in inner_functions)
+    has_mount_effect = any(e["type"] == "mount" for e in effects)
+
+    # Determine the primary data type for LoadState
+    primary_data_type = _detect_primary_data_type(state_vars)
+
+    lines.append("// 💡 Learn: @Observable (iOS 17+) replaces the older ObservableObject/@Published pattern.")
+    lines.append("//    SwiftUI automatically tracks which properties each view reads and only")
+    lines.append("//    re-renders when those specific properties change. No manual @Published needed.")
+    lines.append("")
     lines.append(f"@Observable")
     lines.append(f"class {vm_name} {{")
     lines.append("")
 
-    # Extract useState calls -> properties
-    state_vars = extract_use_state(body)
     if state_vars:
         lines.append(f"    {swift_mark('State')}")
         lines.append("")
-        for sv in state_vars:
-            lines.append(f"    {sv['swift_declaration']}")
+
+        # Phase B: If there's async data fetching, use LoadState for the
+        # primary data property instead of separate isLoading/error/data vars
+        if has_async_data and primary_data_type:
+            # Generate LoadState property for the primary data
+            load_state_emitted = False
+            for sv in state_vars:
+                name = sv["name"]
+                # Detect loading/error state vars — replace with LoadState
+                if name in ("isLoading", "loading"):
+                    if not load_state_emitted:
+                        lines.append(f"    // 💡 Learn: LoadState<T> replaces separate isLoading/error/data properties.")
+                        lines.append(f"    //    It makes illegal states unrepresentable — you can't be loading AND have an error.")
+                        lines.append(f"    var state: LoadState<{primary_data_type}> = .idle")
+                        load_state_emitted = True
+                    continue
+                elif name in ("error", "errorMessage"):
+                    continue  # Covered by LoadState
+                else:
+                    lines.append(f"    {sv['swift_declaration']}")
+            if not load_state_emitted:
+                # No isLoading var found, but there's async work — add LoadState anyway
+                lines.append(f"    var state: LoadState<{primary_data_type}> = .idle")
+        else:
+            for sv in state_vars:
+                lines.append(f"    {sv['swift_declaration']}")
+
         lines.append("")
 
     # Extract computed properties from return statement
@@ -126,10 +166,6 @@ def convert_hook_to_viewmodel(hook: dict, full_source: str) -> str:
             lines.append(f"    {c}")
         lines.append("")
 
-    # Extract useEffect calls -> init/methods
-    effects = extract_use_effects(body)
-    has_mount_effect = any(e["type"] == "mount" for e in effects)
-
     # Generate init if there's a mount effect
     if has_mount_effect:
         lines.append(f"    {swift_mark('Initialization')}")
@@ -139,10 +175,7 @@ def convert_hook_to_viewmodel(hook: dict, full_source: str) -> str:
         lines.append("    }")
         lines.append("")
 
-    # Generate async methods from effects and inner functions
-    inner_functions = extract_inner_functions(body)
-    api_calls = extract_api_calls_from_body(body)
-
+    # Generate async methods
     lines.append(f"    {swift_mark('Methods')}")
     lines.append("")
 
@@ -161,20 +194,23 @@ def convert_hook_to_viewmodel(hook: dict, full_source: str) -> str:
         lines.append("    }")
         lines.append("")
 
-    # Convert inner functions to methods
+    # Convert inner functions to methods — use LoadState-aware version
     for func in inner_functions:
-        lines.append(convert_inner_function(func, state_vars))
+        lines.append(convert_inner_function(func, state_vars, use_load_state=has_async_data))
         lines.append("")
 
-    # If no inner functions but there are API calls, generate stubs
+    # If no inner functions but there are API calls, generate LoadState-aware stubs
     if not inner_functions and api_calls:
         for call in api_calls:
             lines.append(f"    {swift_todo(f'Implement API call: {call}')}")
             lines.append(f"    func fetchData() async {{")
+            lines.append(f"        state = .loading")
             lines.append(f"        do {{")
             lines.append(f"            {swift_todo('Call APIClient here')}")
+            lines.append(f"            // let result: YourType = try await APIClient.shared.get(url)")
+            lines.append(f"            // state = .loaded(result)")
             lines.append(f"        }} catch {{")
-            lines.append(f"            {swift_todo('Handle error')}")
+            lines.append(f"            state = .error(error)")
             lines.append(f"        }}")
             lines.append(f"    }}")
             lines.append("")
@@ -182,6 +218,23 @@ def convert_hook_to_viewmodel(hook: dict, full_source: str) -> str:
     lines.append("}")
     lines.append("")
     return "\n".join(lines)
+
+
+def _detect_primary_data_type(state_vars: list[dict]) -> str | None:
+    """Detect the primary data type from state variables for LoadState<T>.
+
+    Looks for the main data-carrying state var (not isLoading, error, etc.)
+    and returns its Swift type.
+    """
+    skip_names = {"isLoading", "loading", "error", "errorMessage", "isError"}
+    for sv in state_vars:
+        if sv["name"] in skip_names:
+            continue
+        swift_type = sv["swift_type"]
+        # Return the first non-trivial data type
+        if swift_type not in ("Bool", "String") or sv["name"] not in ("isLoading", "loading"):
+            return swift_type
+    return "Any"
 
 
 # ---------------------------------------------------------------------------
@@ -365,8 +418,14 @@ def extract_inner_functions(body: str) -> list[dict]:
     return functions
 
 
-def convert_inner_function(func: dict, state_vars: list[dict]) -> str:
-    """Convert an inner function to a Swift method."""
+def convert_inner_function(func: dict, state_vars: list[dict], use_load_state: bool = False) -> str:
+    """Convert an inner function to a Swift method.
+
+    Args:
+        func: Extracted function dict with name, is_async, params, body
+        state_vars: Extracted state variables from the hook
+        use_load_state: If True, wrap async calls with LoadState transitions
+    """
     name = to_camel_case(func["name"])
     is_async = func["is_async"]
     body = func["body"]
@@ -386,15 +445,21 @@ def convert_inner_function(func: dict, state_vars: list[dict]) -> str:
 
     params_str = ", ".join(params)
     async_kw = "async " if is_async else ""
-    throws_kw = "throws " if "throw" in body or "try" in body or is_async else ""
-
-    lines.append(f"    func {name}({params_str}) {async_kw}{throws_kw}{{")
 
     # Convert body — detect key patterns
     has_try = "await" in body or "fetch" in body or "axios" in body
-    has_state_set = any(f"set{sv['name'][0].upper()}{sv['name'][1:]}" in body for sv in state_vars)
+
+    # Only add throws if we're NOT using LoadState (LoadState catches internally)
+    throws_kw = ""
+    if not use_load_state and ("throw" in body or "try" in body or is_async):
+        throws_kw = "throws "
+
+    lines.append(f"    func {name}({params_str}) {async_kw}{throws_kw}{{")
 
     if has_try:
+        # Phase B: Use LoadState transitions for async data fetching
+        if use_load_state:
+            lines.append("        state = .loading")
         lines.append("        do {")
 
         # Detect fetch/API calls
@@ -417,16 +482,24 @@ def convert_inner_function(func: dict, state_vars: list[dict]) -> str:
                         lines.append(f"            {sv['name']} = nil")
                     elif val == "data" or val.startswith("data."):
                         sv_name = sv["name"]
-                        lines.append(f"            {swift_todo(f'Assign decoded response to {sv_name}')}")
+                        if use_load_state:
+                            lines.append(f"            {swift_todo(f'Assign decoded response: state = .loaded(result)')}")
+                        else:
+                            lines.append(f"            {swift_todo(f'Assign decoded response to {sv_name}')}")
                     elif val == "true" or val == "false":
                         lines.append(f"            {sv['name']} = {val}")
                     else:
                         sv_name = sv["name"]
                         lines.append(f"            {swift_todo(f'Set {sv_name} = {val}')}")
 
+        if use_load_state:
+            lines.append("            // state = .loaded(result)")
         lines.append("        } catch {")
-        lines.append(f"            {swift_todo('Handle error')}")
-        lines.append("            print(\"Error in \\(#function): \\(error)\")")
+        if use_load_state:
+            lines.append("            state = .error(error)")
+        else:
+            lines.append(f"            {swift_todo('Handle error')}")
+            lines.append("            print(\"Error in \\(#function): \\(error)\")")
         lines.append("        }")
     else:
         # Simple synchronous function
@@ -510,12 +583,17 @@ def generate_viewmodel_from_manifest(vm_name: str, manifest_entry: dict) -> str:
     state_patterns = [p for p in patterns if p["pattern_type"] == "hook" and p["name"] == "useState"]
     api_patterns = [p for p in patterns if p["pattern_type"] == "api_call"]
 
+    lines.append(f"    {swift_mark('State')}")
+    lines.append("")
+
+    if api_patterns:
+        # Use LoadState for ViewModels that fetch data
+        lines.append("    var state: LoadState<Any> = .idle")
     if state_patterns:
-        lines.append(f"    {swift_mark('State')}")
         for i, _ in enumerate(state_patterns):
             lines.append(f"    {swift_todo(f'Add state property {i + 1}')}")
             lines.append(f"    var property{i + 1}: Any?")
-        lines.append("")
+    lines.append("")
 
     lines.append(f"    {swift_mark('Methods')}")
     lines.append("")
@@ -524,8 +602,14 @@ def generate_viewmodel_from_manifest(vm_name: str, manifest_entry: dict) -> str:
         for p in api_patterns:
             url = p.get("details", {}).get("url", "/endpoint")
             lines.append(f"    {swift_todo(f'Implement: {url}')}")
-            lines.append(f"    func fetchData() async throws {{")
-            lines.append(f"        // try await APIClient.shared.get(url)")
+            lines.append(f"    func fetchData() async {{")
+            lines.append(f"        state = .loading")
+            lines.append(f"        do {{")
+            lines.append(f"            // let result = try await APIClient.shared.get(url)")
+            lines.append(f"            // state = .loaded(result)")
+            lines.append(f"        }} catch {{")
+            lines.append(f"            state = .error(error)")
+            lines.append(f"        }}")
             lines.append(f"    }}")
             lines.append("")
 

@@ -1,9 +1,88 @@
 """
 Configuration Generator — Creates xcconfig files, Package.swift,
-and Info.plist entries from detected environment variables and dependencies.
+project.yml (XcodeGen), and build configuration from detected
+environment variables and dependencies.
 """
 
 from ..rewriter.swift_helpers import swift_header, format_swift
+
+
+# ---------------------------------------------------------------------------
+# XcodeGen project.yml generation
+# ---------------------------------------------------------------------------
+
+def generate_xcodegen_project(
+    app_name: str,
+    npm_dependencies: list[str],
+    ios_version: str = "17.0",
+    has_resources: bool = True,
+) -> str:
+    """
+    Generate a project.yml for XcodeGen — an alternative to Package.swift
+    that produces a full .xcodeproj when `xcodegen generate` is run.
+
+    This is optional: the SPM Package.swift works on its own.
+    """
+    spm_packages = _resolve_spm_packages(npm_dependencies)
+
+    lines = []
+    lines.append(f"name: {app_name}")
+    lines.append("")
+    lines.append("options:")
+    lines.append("  bundleIdPrefix: com.example")
+    lines.append("  deploymentTarget:")
+    lines.append(f"    iOS: \"{ios_version}\"")
+    lines.append("  xcodeVersion: \"15.0\"")
+    lines.append("")
+
+    # SPM packages
+    if spm_packages:
+        lines.append("packages:")
+        for pkg in spm_packages:
+            lines.append(f"  {pkg['name']}:")
+            lines.append(f"    url: {pkg['url']}")
+            lines.append(f"    from: \"{pkg['version']}\"")
+        lines.append("")
+
+    lines.append("targets:")
+    lines.append(f"  {app_name}:")
+    lines.append("    type: application")
+    lines.append("    platform: iOS")
+    lines.append(f"    deploymentTarget: \"{ios_version}\"")
+    lines.append("    sources:")
+    lines.append(f"      - Sources/{app_name}")
+    if has_resources:
+        lines.append("    resources:")
+        lines.append(f"      - Sources/{app_name}/Resources")
+    lines.append("    settings:")
+    lines.append("      base:")
+    lines.append(f"        PRODUCT_BUNDLE_IDENTIFIER: com.example.{app_name.lower()}")
+    lines.append(f"        PRODUCT_NAME: {app_name}")
+    lines.append("        SWIFT_VERSION: \"5.9\"")
+    lines.append("        GENERATE_INFOPLIST_FILE: NO")
+    lines.append(f"        INFOPLIST_FILE: Sources/{app_name}/Info.plist")
+    lines.append("      configs:")
+    lines.append("        Debug:")
+    lines.append(f"          base: Sources/{app_name}/Configuration/Debug.xcconfig")
+    lines.append("        Release:")
+    lines.append(f"          base: Sources/{app_name}/Configuration/Release.xcconfig")
+
+    if spm_packages:
+        lines.append("    dependencies:")
+        for pkg in spm_packages:
+            lines.append(f"      - package: {pkg['name']}")
+
+    lines.append("")
+    lines.append(f"  {app_name}Tests:")
+    lines.append("    type: bundle.unit-test")
+    lines.append("    platform: iOS")
+    lines.append("    sources:")
+    lines.append(f"      - Tests/{app_name}Tests")
+    lines.append("    dependencies:")
+    lines.append(f"      - target: {app_name}")
+    lines.append("")
+
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -145,28 +224,34 @@ def generate_package_swift(
     app_name: str,
     npm_dependencies: list[str],
     ios_version: str = "17.0",
+    has_resources: bool = True,
 ) -> str:
     """
     Generate Package.swift from detected npm dependencies.
+
+    The generated package uses SPM's executable target layout so Xcode can
+    open Package.swift directly — no .xcodeproj needed.
+
+    Directory layout expected:
+        Package.swift
+        Sources/{AppName}/
+            App/
+            Views/
+            ViewModels/
+            Models/
+            Services/
+            Configuration/
+            Resources/
+        Tests/{AppName}Tests/
 
     Args:
         app_name: Name of the app
         npm_dependencies: List of npm package names from the web project
         ios_version: Minimum iOS version target
+        has_resources: Whether to include resource processing rules
     """
-    # Map npm deps to SPM packages (skip built-ins)
-    spm_packages = []
-    builtin_notes = []
-
-    for npm_dep in npm_dependencies:
-        if npm_dep in NPM_TO_SPM:
-            spm_info = NPM_TO_SPM[npm_dep]
-            if spm_info is None:
-                builtin_notes.append(npm_dep)
-            else:
-                # Avoid duplicates
-                if not any(p["name"] == spm_info["name"] for p in spm_packages):
-                    spm_packages.append(spm_info)
+    spm_packages = _resolve_spm_packages(npm_dependencies)
+    builtin_notes = _resolve_builtin_notes(npm_dependencies)
 
     lines = []
     lines.append("// swift-tools-version: 5.9")
@@ -176,6 +261,7 @@ def generate_package_swift(
     lines.append("//")
     lines.append("// 💡 Learn: Package.swift is the iOS equivalent of package.json.")
     lines.append("//    It's actual Swift code (not JSON), and SPM is built into Xcode.")
+    lines.append("//    Open this file in Xcode: File > Open > select Package.swift")
     lines.append("//    Many web dependencies map to built-in Apple frameworks — no package needed.")
     lines.append("//")
 
@@ -215,7 +301,18 @@ def generate_package_swift(
             lines.append(f'                .product(name: "{pkg["name"]}", package: "{pkg["name"]}"),')
         lines.append("            ],")
 
-    lines.append(f'            path: "Sources/{app_name}"')
+    lines.append(f'            path: "Sources/{app_name}",')
+
+    # Resource processing rules
+    if has_resources:
+        lines.append("            resources: [")
+        lines.append(f'                .process("Resources"),')
+        lines.append("            ],")
+
+    # Exclude non-Swift files from compilation
+    lines.append("            exclude: [")
+    lines.append('                "Info.plist",')
+    lines.append("            ]")
     lines.append("        ),")
 
     # Test target
@@ -276,6 +373,26 @@ def generate_config_enum(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _resolve_spm_packages(npm_dependencies: list[str]) -> list[dict]:
+    """Map npm dependencies to SPM packages, excluding built-ins."""
+    spm_packages = []
+    for npm_dep in npm_dependencies:
+        if npm_dep in NPM_TO_SPM:
+            spm_info = NPM_TO_SPM[npm_dep]
+            if spm_info is not None:
+                if not any(p["name"] == spm_info["name"] for p in spm_packages):
+                    spm_packages.append(spm_info)
+    return spm_packages
+
+
+def _resolve_builtin_notes(npm_dependencies: list[str]) -> list[str]:
+    """Return npm packages that map to built-in iOS frameworks."""
+    return [
+        dep for dep in npm_dependencies
+        if dep in NPM_TO_SPM and NPM_TO_SPM[dep] is None
+    ]
+
 
 def _clean_env_name(var: str) -> str:
     """Strip web-specific prefixes from env variable names."""

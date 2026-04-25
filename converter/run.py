@@ -32,9 +32,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from converter.analyzer.scanner import scan_project
 from converter.analyzer.patterns import analyze_file
 from converter.analyzer.manifest import build_manifest, generate_report
+from converter.analyzer.dependency_graph import DependencyGraph
 from converter.reviewer.migration_planner import generate_migration_plan
 from converter.rewriter.engine import rewrite_project
 from converter.assembler.project_assembler import assemble_project
+from converter.validator.swift_checker import validate_project, generate_validation_report
 
 
 def main():
@@ -69,6 +71,11 @@ def main():
         "--quiet", "-q",
         action="store_true",
         help="Suppress progress output",
+    )
+    parser.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Skip output validation step after code generation",
     )
     args = parser.parse_args()
 
@@ -119,6 +126,23 @@ def main():
     report_path.write_text(report, encoding="utf-8")
     log(f"  -> {report_path}")
 
+    # Build dependency graph (Phase A: BUILD-2)
+    log("Building dependency graph...")
+    source_files_map = {f["relative_path"]: f["content"] for f in files}
+    dep_graph = DependencyGraph(manifest, source_files_map)
+    graph_summary = dep_graph.summary()
+    log(f"  Files: {graph_summary['total_files']}, "
+        f"Internal edges: {graph_summary['internal_edges']}, "
+        f"Types registered: {graph_summary['types_registered']}")
+
+    unresolved = dep_graph.get_unresolved_imports()
+    if unresolved:
+        log(f"  Unresolved imports: {len(unresolved)}")
+        for u in unresolved[:5]:
+            log(f"    {u['from']} -> {u['import_path']}: {u['names']}")
+
+    log(f"  Conversion order: {' -> '.join(Path(p).stem for p in graph_summary['conversion_order'])}")
+
     # =====================================================================
     # Phase 2: Review
     # =====================================================================
@@ -143,9 +167,15 @@ def main():
 
     # Build source file map
     source_files = {f["relative_path"]: f["content"] for f in files}
-    swift_output_dir = output_dir / "swift"
 
-    result = rewrite_project(manifest, source_files, str(swift_output_dir))
+    # Phase B: Output goes to a project root dir (SPM layout built by assembler)
+    project_output_dir = output_dir / args.app_name
+    swift_output_dir = project_output_dir
+
+    result = rewrite_project(
+        manifest, source_files, str(swift_output_dir),
+        dependency_graph=dep_graph,
+    )
 
     # Report results
     for rewrite in result.files:
@@ -158,10 +188,10 @@ def main():
         log(f"  [SCAFFOLD] {scaffold_path}")
 
     # =====================================================================
-    # Phase 4: Assemble
+    # Phase 4: Assemble (Phase B: SPM package layout)
     # =====================================================================
     log(f"\n{'='*60}")
-    log(f"  PHASE 4: Assembling iOS project")
+    log(f"  PHASE 4: Assembling iOS project (SPM package layout)")
     log(f"{'='*60}")
 
     assembly = assemble_project(
@@ -175,6 +205,31 @@ def main():
         log(f"  [ASSEMBLE] {rel_path}")
 
     log(f"  [LEARN] learning-notes.md")
+    log(f"  [SPM] Package.swift — open in Xcode: File > Open > Package.swift")
+
+    # =====================================================================
+    # Phase 5: Validate (Phase A: BUILD-9)
+    # =====================================================================
+    validation = None
+    if not args.no_validate:
+        log(f"\n{'='*60}")
+        log(f"  PHASE 5: Validating generated Swift code")
+        log(f"{'='*60}")
+
+        validation = validate_project(str(swift_output_dir), use_swiftc=True)
+
+        for vr in sorted(validation.files, key=lambda r: r.confidence_score):
+            pct = int(vr.confidence_score * 100)
+            status = "PASS" if vr.is_valid else "FAIL"
+            errors = sum(1 for i in vr.issues if i.severity == "error")
+            warns = sum(1 for i in vr.issues if i.severity == "warning")
+            log(f"  [{status}] {pct:3d}% | {vr.file_path} ({errors}E {warns}W)")
+
+        # Write validation report
+        val_report = generate_validation_report(validation)
+        val_path = output_dir / "validation-report.md"
+        val_path.write_text(val_report, encoding="utf-8")
+        log(f"  -> {val_path}")
 
     # =====================================================================
     # Write conversion summary
@@ -206,14 +261,35 @@ def main():
         summary_lines.append(f"{prefix}{filename}")
     summary_lines.append("```")
 
+    # Validation summary
+    if validation:
+        summary_lines.append("\n## Validation Results\n")
+        summary_lines.append(f"Average confidence: **{validation.summary.get('average_confidence', 0)}%**\n")
+        summary_lines.append("| File | Confidence | Status |")
+        summary_lines.append("|---|---|---|")
+        for vr in sorted(validation.files, key=lambda r: r.confidence_score):
+            pct = int(vr.confidence_score * 100)
+            badge = "HIGH" if pct >= 80 else ("MEDIUM" if pct >= 50 else "LOW")
+            status = "PASS" if vr.is_valid else "FAIL"
+            summary_lines.append(f"| `{vr.file_path}` | {pct}% {badge} | {status} |")
+        summary_lines.append("\nSee `validation-report.md` for full details.")
+
     summary_lines.append("\n## Next Steps\n")
-    summary_lines.append("1. Review all generated `.swift` files for `// TODO:` comments")
-    summary_lines.append("2. Read `learning-notes.md` to understand iOS patterns")
-    summary_lines.append("3. Open in Xcode: create new iOS App project, add generated files")
-    summary_lines.append("4. Update `Debug.xcconfig` / `Release.xcconfig` with real values")
-    summary_lines.append("5. Resolve any compilation errors (check TODOs)")
-    summary_lines.append("6. Test each view in SwiftUI previews")
-    summary_lines.append("7. Build and run on Simulator")
+    summary_lines.append(f"1. Open in Xcode: **File > Open** → select `{args.app_name}/Package.swift`")
+    summary_lines.append("2. Xcode will resolve SPM dependencies automatically")
+    summary_lines.append("3. Review all generated `.swift` files for `// TODO:` comments")
+    summary_lines.append("4. Read `learning-notes.md` to understand iOS patterns")
+    summary_lines.append("5. Update `Debug.xcconfig` / `Release.xcconfig` with real API URLs")
+    summary_lines.append("6. Review `Info.plist` — update privacy descriptions for your app")
+    summary_lines.append("7. Resolve any compilation errors (check validation report)")
+    summary_lines.append("8. Test each view in SwiftUI previews (Cmd+Option+P)")
+    summary_lines.append("9. Build and run on Simulator (Cmd+R)")
+    summary_lines.append("")
+    summary_lines.append("### Alternative: XcodeGen")
+    summary_lines.append("If you prefer a `.xcodeproj`, install XcodeGen and run:")
+    summary_lines.append(f"```")
+    summary_lines.append(f"cd {args.app_name} && xcodegen generate")
+    summary_lines.append(f"```")
 
     gen_summary_path = output_dir / "generation-summary.md"
     gen_summary_path.write_text("\n".join(summary_lines), encoding="utf-8")
@@ -231,10 +307,10 @@ def main():
         all_outputs.append(swift_output_dir / ap)
     all_outputs.append(output_dir / "learning-notes.md")
 
-    _print_summary(log, manifest, all_outputs, result, assembly)
+    _print_summary(log, manifest, all_outputs, result, assembly, validation)
 
 
-def _print_summary(log, manifest, output_files, rewrite_result=None, assembly=None):
+def _print_summary(log, manifest, output_files, rewrite_result=None, assembly=None, validation=None):
     """Print the final summary."""
     s = manifest["summary"]
     total = s["total_patterns"] or 1
@@ -260,6 +336,21 @@ def _print_summary(log, manifest, output_files, rewrite_result=None, assembly=No
     if assembly:
         log(f"  Project files:        {len(assembly.generated_files)}")
         log(f"  Learning notes:       learning-notes.md")
+        log(f"  Project layout:       SPM executable package")
+        log(f"  Open in Xcode:        File > Open > Package.swift")
+
+    if validation:
+        vs = validation.summary
+        log(f"")
+        log(f"  Validation:")
+        log(f"    Files validated:    {vs.get('total_files', 0)}")
+        log(f"    Avg confidence:    {vs.get('average_confidence', 0)}%")
+        log(f"    Errors:            {vs.get('errors', 0)}")
+        log(f"    Warnings:          {vs.get('warnings', 0)}")
+        if vs.get('swift_syntax_checked'):
+            log(f"    Swift syntax:      checked (swiftc)")
+        else:
+            log(f"    Swift syntax:      static analysis only (swiftc not available)")
 
     log(f"")
     log(f"  Output directory:")

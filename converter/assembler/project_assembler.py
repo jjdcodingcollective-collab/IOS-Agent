@@ -2,6 +2,12 @@
 Project Assembler — Orchestrates Phase 4.
 Takes the generated Swift files from Phase 3 and the manifest from Phase 1,
 then assembles everything into a buildable iOS project structure.
+
+Phase B enhancements:
+- SPM package layout: all source files under Sources/{AppName}/
+- Info.plist generation from detected Web API patterns
+- project.yml for XcodeGen (optional — Package.swift works on its own)
+- Error handling scaffolds (APIError, LoadState)
 """
 
 from pathlib import Path
@@ -12,7 +18,9 @@ from .config_generator import (
     generate_xcconfig,
     generate_package_swift,
     generate_config_enum,
+    generate_xcodegen_project,
 )
+from .plist_generator import generate_info_plist
 from ..learning.notes_generator import (
     generate_learning_notes,
     generate_inline_annotations,
@@ -38,6 +46,24 @@ def assemble_project(
     """
     Assemble a complete iOS project from generated Swift files.
 
+    Output layout (SPM executable package — open Package.swift in Xcode):
+
+        {output_dir}/
+        ├── Package.swift
+        ├── project.yml              (optional XcodeGen)
+        ├── Sources/{app_name}/
+        │   ├── Info.plist
+        │   ├── App/
+        │   ├── Views/
+        │   ├── ViewModels/
+        │   ├── Models/
+        │   ├── Services/
+        │   ├── Extensions/
+        │   ├── Configuration/
+        │   └── Resources/
+        │       └── Assets.xcassets/
+        └── Tests/{app_name}Tests/
+
     Args:
         manifest: Analysis manifest from Phase 1
         rewrite_result: Result from Phase 3 rewriting
@@ -50,6 +76,9 @@ def assemble_project(
     result = AssemblyResult(app_name=app_name)
     output_path = Path(output_dir)
     summary = manifest.get("summary", {})
+
+    # SPM source prefix — all source files live under this path
+    src = f"Sources/{app_name}"
 
     # ---------------------------------------------------------------
     # 1. Classify generated files for project assembly
@@ -94,7 +123,7 @@ def assemble_project(
         root_view="ContentView",
         has_auth=has_auth,
     )
-    entry_path = f"App/{app_name}App.swift"
+    entry_path = f"{src}/App/{app_name}App.swift"
     result.generated_files[entry_path] = entry_code
 
     # ---------------------------------------------------------------
@@ -106,7 +135,7 @@ def assemble_project(
         views=views,
         has_navigation=has_navigation,
     )
-    content_path = "App/ContentView.swift"
+    content_path = f"{src}/App/ContentView.swift"
     result.generated_files[content_path] = content_view_code
 
     # ---------------------------------------------------------------
@@ -117,42 +146,72 @@ def assemble_project(
     if env_vars:
         debug_config = generate_xcconfig(env_vars, "Debug")
         release_config = generate_xcconfig(env_vars, "Release")
-        result.generated_files["Configuration/Debug.xcconfig"] = debug_config
-        result.generated_files["Configuration/Release.xcconfig"] = release_config
+        result.generated_files[f"{src}/Configuration/Debug.xcconfig"] = debug_config
+        result.generated_files[f"{src}/Configuration/Release.xcconfig"] = release_config
 
         # AppConfig.swift for type-safe access
         config_code = generate_config_enum(app_name, env_vars)
-        result.generated_files["Configuration/AppConfig.swift"] = config_code
+        result.generated_files[f"{src}/Configuration/AppConfig.swift"] = config_code
 
     # ---------------------------------------------------------------
-    # 6. Generate Package.swift
+    # 6. Generate Package.swift (at project root, outside Sources/)
     # ---------------------------------------------------------------
     npm_deps = summary.get("third_party_libraries", [])
     package_code = generate_package_swift(app_name, npm_deps)
     result.generated_files["Package.swift"] = package_code
 
     # ---------------------------------------------------------------
+    # 6b. Generate project.yml for XcodeGen (optional alternative)
+    # ---------------------------------------------------------------
+    xcodegen_code = generate_xcodegen_project(app_name, npm_deps)
+    result.generated_files["project.yml"] = xcodegen_code
+
+    # ---------------------------------------------------------------
     # 7. Generate Assets.xcassets stub
     # ---------------------------------------------------------------
-    result.generated_files["Resources/Assets.xcassets/Contents.json"] = (
+    assets_prefix = f"{src}/Resources/Assets.xcassets"
+
+    result.generated_files[f"{assets_prefix}/Contents.json"] = (
         '{\n  "info": {\n    "author": "xcode",\n    "version": 1\n  }\n}\n'
     )
 
     # AccentColor
-    result.generated_files["Resources/Assets.xcassets/AccentColor.colorset/Contents.json"] = (
+    result.generated_files[f"{assets_prefix}/AccentColor.colorset/Contents.json"] = (
         '{\n  "colors": [\n    {\n      "idiom": "universal"\n    }\n  ],\n'
         '  "info": {\n    "author": "xcode",\n    "version": 1\n  }\n}\n'
     )
 
     # AppIcon
-    result.generated_files["Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"] = (
+    result.generated_files[f"{assets_prefix}/AppIcon.appiconset/Contents.json"] = (
         '{\n  "images": [\n    {\n      "idiom": "universal",\n'
         '      "platform": "ios",\n      "size": "1024x1024"\n    }\n  ],\n'
         '  "info": {\n    "author": "xcode",\n    "version": 1\n  }\n}\n'
     )
 
     # ---------------------------------------------------------------
-    # 8. Inject inline learning annotations into generated Swift files
+    # 7b. Generate Info.plist (Phase B: BUILD-4)
+    # ---------------------------------------------------------------
+    info_plist = generate_info_plist(
+        app_name=app_name,
+        manifest=manifest,
+        env_vars=env_vars,
+    )
+    result.generated_files[f"{src}/Info.plist"] = info_plist
+
+    # ---------------------------------------------------------------
+    # 8. Relocate Phase 3 files into SPM Sources/ layout
+    # ---------------------------------------------------------------
+    for rw in rewrite_result.files:
+        # Rewrite output_path to include Sources/{AppName}/ prefix
+        # e.g. "Views/UserCardView.swift" -> "Sources/MyApp/Views/UserCardView.swift"
+        rw.output_path = f"{src}/{rw.output_path}"
+
+    for old_key in list(rewrite_result.scaffold_files.keys()):
+        content = rewrite_result.scaffold_files.pop(old_key)
+        rewrite_result.scaffold_files[f"{src}/{old_key}"] = content
+
+    # ---------------------------------------------------------------
+    # 9. Inject inline learning annotations into generated Swift files
     # ---------------------------------------------------------------
     for rw in rewrite_result.files:
         file_patterns = _get_patterns_for_file(rw.source_path, manifest)
@@ -170,7 +229,7 @@ def assemble_project(
             rw.swift_code = annotated_code
 
     # ---------------------------------------------------------------
-    # 9. Generate learning-notes.md
+    # 10. Generate learning-notes.md
     # ---------------------------------------------------------------
     generated_file_info = []
     for rw in rewrite_result.files:
@@ -194,7 +253,14 @@ def assemble_project(
     result.learning_notes = generate_learning_notes(manifest, generated_file_info)
 
     # ---------------------------------------------------------------
-    # 10. Build project structure listing
+    # 11. Generate test stubs placeholder
+    # ---------------------------------------------------------------
+    test_path = f"Tests/{app_name}Tests/{app_name}Tests.swift"
+    test_code = _generate_placeholder_test(app_name, view_models, services)
+    result.generated_files[test_path] = test_code
+
+    # ---------------------------------------------------------------
+    # 12. Build project structure listing
     # ---------------------------------------------------------------
     all_files = []
 
@@ -212,7 +278,7 @@ def assemble_project(
     result.project_structure = all_files
 
     # ---------------------------------------------------------------
-    # 11. Write all Phase 4 files to disk
+    # 13. Write all Phase 4 files to disk
     # ---------------------------------------------------------------
     for rel_path, content in result.generated_files.items():
         full_path = output_path / rel_path
@@ -223,11 +289,17 @@ def assemble_project(
     notes_path = output_path.parent / "learning-notes.md"
     notes_path.write_text(result.learning_notes, encoding="utf-8")
 
-    # Re-write Phase 3 files with inline annotations
+    # Write Phase 3 files into SPM layout
     for rw in rewrite_result.files:
         annotated_path = output_path / rw.output_path
         annotated_path.parent.mkdir(parents=True, exist_ok=True)
         annotated_path.write_text(rw.swift_code, encoding="utf-8")
+
+    # Write scaffold files into SPM layout
+    for scaffold_path, scaffold_content in rewrite_result.scaffold_files.items():
+        full_scaffold = output_path / scaffold_path
+        full_scaffold.parent.mkdir(parents=True, exist_ok=True)
+        full_scaffold.write_text(scaffold_content, encoding="utf-8")
 
     return result
 
@@ -272,3 +344,47 @@ def _find_header_end(code: str) -> int:
             return pos
 
     return 0
+
+
+def _generate_placeholder_test(
+    app_name: str,
+    view_models: list[dict],
+    services: list[dict],
+) -> str:
+    """Generate a minimal test file so the SPM test target compiles."""
+    lines = []
+    lines.append("//")
+    lines.append(f"//  {app_name}Tests.swift")
+    lines.append(f"//  {app_name}Tests")
+    lines.append("//")
+    lines.append("//  Auto-generated by iOS Code Converter")
+    lines.append("//")
+    lines.append("")
+    lines.append("import XCTest")
+    lines.append(f"@testable import {app_name}")
+    lines.append("")
+    lines.append("// 💡 Learn: XCTest is Swift's built-in testing framework — like Jest for iOS.")
+    lines.append("//    @testable import gives tests access to internal (non-private) symbols.")
+    lines.append("//    Run tests with Cmd+U in Xcode or `swift test` in Terminal.")
+    lines.append("")
+    lines.append(f"final class {app_name}Tests: XCTestCase {{")
+    lines.append("")
+    lines.append("    func testAppLaunches() {")
+    lines.append("        // Basic smoke test — verifies the test target links correctly")
+    lines.append("        XCTAssertTrue(true)")
+    lines.append("    }")
+
+    # Generate ViewModel test stubs
+    for vm in view_models[:3]:  # limit to first 3 to keep it concise
+        vm_name = vm["name"]
+        lines.append("")
+        lines.append(f"    // TODO: Test {vm_name} initial state and async methods")
+        lines.append(f"    func test{vm_name}InitialState() {{")
+        lines.append(f"        // let vm = {vm_name}()")
+        lines.append(f"        // XCTAssertNotNil(vm)")
+        lines.append("    }")
+
+    lines.append("}")
+    lines.append("")
+
+    return "\n".join(lines)

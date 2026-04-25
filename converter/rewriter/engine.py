@@ -2,6 +2,11 @@
 Rewriter Engine — Orchestrates all converters.
 Routes each file to the appropriate converter based on its file_type
 from the analysis manifest, then assembles the output.
+
+Phase A enhancements:
+- Uses DependencyGraph for cross-file type resolution and conversion ordering
+- Passes AST parser to converters when available
+- Tracks per-file confidence scores
 """
 
 import json
@@ -10,7 +15,11 @@ from dataclasses import dataclass, field
 
 from .swift_helpers import format_swift, swift_header, swift_todo
 from .type_converter import convert_types_file
-from .service_converter import convert_service_file, generate_api_client_scaffold
+from .service_converter import (
+    convert_service_file,
+    generate_api_client_scaffold,
+    generate_load_state_scaffold,
+)
 from .hook_converter import convert_hook_file
 from .component_converter import convert_component_file
 
@@ -24,6 +33,8 @@ class RewriteResult:
     file_type: str
     success: bool = True
     notes: list[str] = field(default_factory=list)
+    confidence_score: float = 0.0
+    confidence_breakdown: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -50,6 +61,7 @@ def rewrite_project(
     manifest: dict,
     source_files: dict[str, str],
     output_dir: str,
+    dependency_graph=None,
 ) -> ProjectRewriteResult:
     """
     Rewrite an entire project from TypeScript to Swift.
@@ -58,6 +70,7 @@ def rewrite_project(
         manifest: The analysis manifest (from Phase 1)
         source_files: Dict mapping relative_path -> file content
         output_dir: Directory to write Swift files to
+        dependency_graph: Optional DependencyGraph for cross-file type resolution
 
     Returns:
         ProjectRewriteResult with all generated files
@@ -65,15 +78,35 @@ def rewrite_project(
     result = ProjectRewriteResult()
     output_path = Path(output_dir)
 
-    # Always generate the APIClient scaffold
+    # Always generate infrastructure scaffolds
+    # Note: files are stored in result but NOT written to disk here —
+    # the assembler handles all disk I/O after relocating into SPM layout
     api_client_code = generate_api_client_scaffold()
-    scaffold_path = "Services/APIClient.swift"
-    result.scaffold_files[scaffold_path] = api_client_code
-    _write_file(output_path / scaffold_path, api_client_code)
+    result.scaffold_files["Services/APIClient.swift"] = api_client_code
 
-    # Process each file from the manifest
-    for file_entry in manifest.get("files", []):
-        rel_path = file_entry["relative_path"]
+    # Phase B: LoadState<T> for ViewModel state management
+    load_state_code = generate_load_state_scaffold()
+    result.scaffold_files["Models/LoadState.swift"] = load_state_code
+
+    # Determine file processing order
+    # If we have a dependency graph, use topological sort (types first, then
+    # services, then hooks/ViewModels, then components)
+    file_entries_by_path = {
+        entry["relative_path"]: entry
+        for entry in manifest.get("files", [])
+    }
+
+    if dependency_graph:
+        ordered_paths = dependency_graph.get_conversion_order()
+    else:
+        ordered_paths = [e["relative_path"] for e in manifest.get("files", [])]
+
+    # Process each file in dependency order
+    for rel_path in ordered_paths:
+        file_entry = file_entries_by_path.get(rel_path)
+        if not file_entry:
+            continue
+
         file_type = file_entry["file_type"]
         source = source_files.get(rel_path, "")
 
@@ -85,12 +118,14 @@ def rewrite_project(
             continue
 
         # Route to the appropriate converter
+        # Note: files are NOT written to disk here — the assembler handles
+        # all disk I/O after relocating into SPM layout (Phase B)
         try:
-            rewrite = convert_file(source, rel_path, file_type, file_entry)
+            rewrite = convert_file(
+                source, rel_path, file_type, file_entry,
+                dependency_graph=dependency_graph,
+            )
             result.files.append(rewrite)
-
-            # Write the output file
-            _write_file(output_path / rewrite.output_path, rewrite.swift_code)
 
         except Exception as e:
             result.files.append(RewriteResult(
@@ -110,12 +145,27 @@ def convert_file(
     relative_path: str,
     file_type: str,
     manifest_entry: dict,
+    dependency_graph=None,
 ) -> RewriteResult:
     """Route a file to the correct converter and return the result."""
 
     ios_dir = FILE_TYPE_TO_DIR.get(file_type, "Misc")
     filename = Path(relative_path).stem
     notes = []
+
+    # Add cross-file type context from dependency graph
+    if dependency_graph:
+        imports = dependency_graph.get_imports_for(relative_path)
+        internal_imports = [e for e in imports if not e.is_external]
+        if internal_imports:
+            imported_types = []
+            for edge in internal_imports:
+                for name in edge.imported_names:
+                    shape = dependency_graph.get_type_shape(name)
+                    if shape:
+                        imported_types.append(name)
+            if imported_types:
+                notes.append(f"Cross-file types resolved: {', '.join(imported_types)}")
 
     if file_type == "type":
         swift_code = convert_types_file(source, relative_path)
