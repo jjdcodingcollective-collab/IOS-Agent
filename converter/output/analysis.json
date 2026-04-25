@@ -1,0 +1,612 @@
+{
+  "meta": {
+    "generated_at": "2026-04-25T05:29:16.350230+00:00",
+    "source_dir": "/storage/users/user_3AeOuDUrxI7LrpU6J21FpMneayM/projects/ios-agent/converter/test-fixtures/sample-app",
+    "tool_version": "0.1.0"
+  },
+  "summary": {
+    "total_files": 4,
+    "file_types": {
+      "component": 1,
+      "unknown": 1,
+      "service": 1,
+      "hook": 1
+    },
+    "total_patterns": 46,
+    "pattern_types": {
+      "component": 1,
+      "hook": 11,
+      "api_call": 10,
+      "routing": 1,
+      "styling": 1,
+      "type_definition": 7,
+      "env_variable": 5,
+      "storage": 7,
+      "custom_hook": 2,
+      "state_management": 1
+    },
+    "conversion_difficulty": {
+      "auto": 38,
+      "assisted": 8,
+      "manual": 0
+    },
+    "third_party_libraries": [
+      "axios",
+      "date-fns",
+      "react",
+      "react-router-dom"
+    ],
+    "env_variables": [
+      "NEXT_PUBLIC_API_URL"
+    ],
+    "api_endpoints": [
+      {
+        "url": "${process.env.NEXT_PUBLIC_API_URL}/users/${userId}",
+        "method": "GET",
+        "file": "components/UserCard.tsx"
+      },
+      {
+        "url": "${API_BASE}/articles",
+        "method": "get",
+        "file": "services/articleService.ts"
+      },
+      {
+        "url": "${API_BASE}/articles/${id}",
+        "method": "get",
+        "file": "services/articleService.ts"
+      },
+      {
+        "url": "${API_BASE}/articles",
+        "method": "post",
+        "file": "services/articleService.ts"
+      },
+      {
+        "url": "${API_BASE}/articles/${id}",
+        "method": "put",
+        "file": "services/articleService.ts"
+      },
+      {
+        "url": "${API_BASE}/articles/${id}",
+        "method": "delete",
+        "file": "services/articleService.ts"
+      },
+      {
+        "url": "${API_BASE}/articles/search",
+        "method": "get",
+        "file": "services/articleService.ts"
+      },
+      {
+        "url": "${process.env.NEXT_PUBLIC_API_URL}/auth/me",
+        "method": "GET",
+        "file": "hooks/useAuth.ts"
+      },
+      {
+        "url": "${process.env.NEXT_PUBLIC_API_URL}/auth/login",
+        "method": "GET",
+        "file": "hooks/useAuth.ts"
+      },
+      {
+        "url": "${process.env.NEXT_PUBLIC_API_URL}/auth/refresh",
+        "method": "GET",
+        "file": "hooks/useAuth.ts"
+      }
+    ]
+  },
+  "files": [
+    {
+      "relative_path": "components/UserCard.tsx",
+      "extension": "tsx",
+      "file_type": "component",
+      "imports": [
+        "react",
+        "react-router-dom",
+        "../utils/date"
+      ],
+      "exports": [
+        "UserCard"
+      ],
+      "patterns": [
+        {
+          "pattern_type": "component",
+          "name": "UserCard",
+          "line": 19,
+          "details": {
+            "style": "function",
+            "props": [
+              "userId",
+              "showActions = true"
+            ]
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useState",
+          "line": 20,
+          "details": {
+            "ios_equivalent": "@State"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useState",
+          "line": 21,
+          "details": {
+            "ios_equivalent": "@State"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useState",
+          "line": 22,
+          "details": {
+            "ios_equivalent": "@State"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useEffect",
+          "line": 25,
+          "details": {
+            "ios_equivalent": ".task / .onAppear / .onChange"
+          },
+          "conversion_difficulty": "assisted"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useEffect",
+          "line": 40,
+          "details": {
+            "ios_equivalent": ".task / .onAppear / .onChange"
+          },
+          "conversion_difficulty": "assisted"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useNavigate",
+          "line": 23,
+          "details": {
+            "ios_equivalent": "NavigationPath / @Environment(\\.dismiss)"
+          },
+          "conversion_difficulty": "assisted"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "fetch",
+          "line": 28,
+          "details": {
+            "url": "${process.env.NEXT_PUBLIC_API_URL}/users/${userId}",
+            "ios_equivalent": "URLSession.shared.data(from:)"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "routing",
+          "name": "navigate-hook",
+          "line": 23,
+          "details": {
+            "path": "",
+            "ios_equivalent": "NavigationStack / NavigationLink"
+          },
+          "conversion_difficulty": "assisted"
+        },
+        {
+          "pattern_type": "styling",
+          "name": "tailwind",
+          "line": 1,
+          "details": {
+            "class_count": 41,
+            "ios_equivalent": "SwiftUI modifiers",
+            "sample_classes": [
+              "animate-pulse",
+              "bg-blue-100",
+              "bg-blue-500",
+              "bg-gray-200",
+              "bg-white",
+              "flex",
+              "flex-1",
+              "flex-col",
+              "font-bold",
+              "font-medium"
+            ]
+          },
+          "conversion_difficulty": "assisted"
+        },
+        {
+          "pattern_type": "type_definition",
+          "name": "User",
+          "line": 5,
+          "details": {
+            "kind": "interface",
+            "ios_equivalent": "struct: Codable"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "type_definition",
+          "name": "UserCardProps",
+          "line": 14,
+          "details": {
+            "kind": "interface",
+            "ios_equivalent": "struct: Codable"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "env_variable",
+          "name": "NEXT_PUBLIC_API_URL",
+          "line": 28,
+          "details": {
+            "ios_equivalent": "xcconfig / Info.plist / Bundle.main"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "storage",
+          "name": "localStorage",
+          "line": 41,
+          "details": {
+            "ios_equivalent": "UserDefaults or Keychain"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "storage",
+          "name": "localStorage",
+          "line": 48,
+          "details": {
+            "ios_equivalent": "UserDefaults or Keychain"
+          },
+          "conversion_difficulty": "auto"
+        }
+      ]
+    },
+    {
+      "relative_path": "utils/date.ts",
+      "extension": "ts",
+      "file_type": "unknown",
+      "imports": [
+        "date-fns"
+      ],
+      "exports": [
+        "formatDate",
+        "isRecent",
+        "formatRelative"
+      ],
+      "patterns": []
+    },
+    {
+      "relative_path": "services/articleService.ts",
+      "extension": "ts",
+      "file_type": "service",
+      "imports": [
+        "axios"
+      ],
+      "exports": [
+        "CreateArticleInput",
+        "articleService",
+        "ArticleSortBy",
+        "Article"
+      ],
+      "patterns": [
+        {
+          "pattern_type": "api_call",
+          "name": "axios.get",
+          "line": 31,
+          "details": {
+            "method": "get",
+            "url": "${API_BASE}/articles",
+            "ios_equivalent": "APIClient"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "axios.get",
+          "line": 38,
+          "details": {
+            "method": "get",
+            "url": "${API_BASE}/articles/${id}",
+            "ios_equivalent": "APIClient"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "axios.post",
+          "line": 43,
+          "details": {
+            "method": "post",
+            "url": "${API_BASE}/articles",
+            "ios_equivalent": "APIClient"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "axios.put",
+          "line": 50,
+          "details": {
+            "method": "put",
+            "url": "${API_BASE}/articles/${id}",
+            "ios_equivalent": "APIClient"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "axios.delete",
+          "line": 57,
+          "details": {
+            "method": "delete",
+            "url": "${API_BASE}/articles/${id}",
+            "ios_equivalent": "APIClient"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "axios.get",
+          "line": 63,
+          "details": {
+            "method": "get",
+            "url": "${API_BASE}/articles/search",
+            "ios_equivalent": "APIClient"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "type_definition",
+          "name": "Article",
+          "line": 5,
+          "details": {
+            "kind": "interface",
+            "ios_equivalent": "struct: Codable"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "type_definition",
+          "name": "CreateArticleInput",
+          "line": 21,
+          "details": {
+            "kind": "interface",
+            "ios_equivalent": "struct: Codable"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "type_definition",
+          "name": "ArticleSortBy",
+          "line": 27,
+          "details": {
+            "kind": "type_alias",
+            "ios_equivalent": "typealias or enum"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "env_variable",
+          "name": "NEXT_PUBLIC_API_URL",
+          "line": 3,
+          "details": {
+            "ios_equivalent": "xcconfig / Info.plist / Bundle.main"
+          },
+          "conversion_difficulty": "auto"
+        }
+      ]
+    },
+    {
+      "relative_path": "hooks/useAuth.ts",
+      "extension": "ts",
+      "file_type": "hook",
+      "imports": [
+        "react"
+      ],
+      "exports": [
+        "useAuth",
+        "useAuthProvider"
+      ],
+      "patterns": [
+        {
+          "pattern_type": "hook",
+          "name": "useState",
+          "line": 25,
+          "details": {
+            "ios_equivalent": "@State"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useState",
+          "line": 26,
+          "details": {
+            "ios_equivalent": "@State"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useState",
+          "line": 27,
+          "details": {
+            "ios_equivalent": "@State"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useEffect",
+          "line": 29,
+          "details": {
+            "ios_equivalent": ".task / .onAppear / .onChange"
+          },
+          "conversion_difficulty": "assisted"
+        },
+        {
+          "pattern_type": "hook",
+          "name": "useContext",
+          "line": 19,
+          "details": {
+            "ios_equivalent": "@Environment"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "custom_hook",
+          "name": "useAuth",
+          "line": 18,
+          "details": {
+            "ios_equivalent": "@Observable ViewModel"
+          },
+          "conversion_difficulty": "assisted"
+        },
+        {
+          "pattern_type": "custom_hook",
+          "name": "useAuthProvider",
+          "line": 24,
+          "details": {
+            "ios_equivalent": "@Observable ViewModel"
+          },
+          "conversion_difficulty": "assisted"
+        },
+        {
+          "pattern_type": "state_management",
+          "name": "createContext",
+          "line": 16,
+          "details": {
+            "library": "react-context",
+            "ios_equivalent": "@Observable / @Environment"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "fetch",
+          "line": 41,
+          "details": {
+            "url": "${process.env.NEXT_PUBLIC_API_URL}/auth/me",
+            "ios_equivalent": "URLSession.shared.data(from:)"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "fetch",
+          "line": 59,
+          "details": {
+            "url": "${process.env.NEXT_PUBLIC_API_URL}/auth/login",
+            "ios_equivalent": "URLSession.shared.data(from:)"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "api_call",
+          "name": "fetch",
+          "line": 81,
+          "details": {
+            "url": "${process.env.NEXT_PUBLIC_API_URL}/auth/refresh",
+            "ios_equivalent": "URLSession.shared.data(from:)"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "type_definition",
+          "name": "AuthState",
+          "line": 3,
+          "details": {
+            "kind": "interface",
+            "ios_equivalent": "struct: Codable"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "type_definition",
+          "name": "AuthContextType",
+          "line": 10,
+          "details": {
+            "kind": "interface",
+            "ios_equivalent": "struct: Codable"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "env_variable",
+          "name": "NEXT_PUBLIC_API_URL",
+          "line": 41,
+          "details": {
+            "ios_equivalent": "xcconfig / Info.plist / Bundle.main"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "env_variable",
+          "name": "NEXT_PUBLIC_API_URL",
+          "line": 59,
+          "details": {
+            "ios_equivalent": "xcconfig / Info.plist / Bundle.main"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "env_variable",
+          "name": "NEXT_PUBLIC_API_URL",
+          "line": 81,
+          "details": {
+            "ios_equivalent": "xcconfig / Info.plist / Bundle.main"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "storage",
+          "name": "localStorage",
+          "line": 30,
+          "details": {
+            "ios_equivalent": "UserDefaults or Keychain"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "storage",
+          "name": "localStorage",
+          "line": 48,
+          "details": {
+            "ios_equivalent": "UserDefaults or Keychain"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "storage",
+          "name": "localStorage",
+          "line": 70,
+          "details": {
+            "ios_equivalent": "UserDefaults or Keychain"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "storage",
+          "name": "localStorage",
+          "line": 76,
+          "details": {
+            "ios_equivalent": "UserDefaults or Keychain"
+          },
+          "conversion_difficulty": "auto"
+        },
+        {
+          "pattern_type": "storage",
+          "name": "localStorage",
+          "line": 88,
+          "details": {
+            "ios_equivalent": "UserDefaults or Keychain"
+          },
+          "conversion_difficulty": "auto"
+        }
+      ]
+    }
+  ]
+}
