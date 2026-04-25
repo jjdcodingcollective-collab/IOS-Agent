@@ -212,6 +212,15 @@ def convert_component(component: dict, source: str, manifest_entry: dict) -> str
             lines.append(f"    @State private var {sv['name']}: {sv['type']} = {sv['initial']}")
         lines.append("")
 
+    # --- Fix #8: Extract hook-derived and computed variables ---
+    hook_vars = extract_hook_variables(body)
+    if hook_vars:
+        lines.append(f"    {swift_mark('Route Parameters & Computed')}")
+        lines.append("")
+        for hv in hook_vars:
+            lines.append(f"    {hv}")
+        lines.append("")
+
     # Check for useNavigate
     has_navigate = "useNavigate" in body
     if has_navigate:
@@ -313,18 +322,87 @@ def extract_use_state_from_body(body: str) -> list[dict]:
     return states
 
 
+def extract_hook_variables(body: str) -> list[str]:
+    """Extract variables from hooks like useParams, useLocation, and computed consts.
+    Fix #8: These variables are used in JSX but weren't being declared in the view."""
+    declarations = []
+
+    # useParams() → destructured route params become let properties
+    params_match = re.search(r"const\s*\{([^}]+)\}\s*=\s*useParams\s*\(", body)
+    if params_match:
+        for param in params_match.group(1).split(","):
+            param = param.strip()
+            if param and param.isidentifier():
+                declarations.append(f"let {param}: String  // From route params")
+
+    # useLocation() → location object
+    if "useLocation" in body:
+        loc_match = re.search(r"const\s+(\w+)\s*=\s*useLocation\s*\(", body)
+        if loc_match:
+            declarations.append(f"// TODO: Map useLocation() — use NavigationPath or custom routing")
+
+    # useSearchParams() → query params
+    search_match = re.search(r"const\s*\[(\w+)\]\s*=\s*useSearchParams\s*\(", body)
+    if search_match:
+        declarations.append(f"// TODO: Map useSearchParams() — pass as view initializer params")
+
+    # Computed const values that aren't useState, handlers, or hooks
+    # Match: const x = someExpression (but NOT const [a, setA] = useState, NOT handlers)
+    const_pattern = re.compile(
+        r"const\s+(\w+)\s*=\s*([^;\n]+?)(?:;|\n)",
+    )
+    skip_patterns = {"useState", "useEffect", "useRef", "useMemo", "useCallback",
+                     "useNavigate", "useLocation", "useParams", "useSearchParams",
+                     "useRouter", "useContext", "useReducer", "useSelector", "useDispatch"}
+    for m in const_pattern.finditer(body):
+        name = m.group(1)
+        value = m.group(2).strip()
+        # Skip if it's a hook call, handler, or destructuring
+        if any(hook in value for hook in skip_patterns):
+            continue
+        if name.startswith("handle") or name.startswith("set"):
+            continue
+        if value.startswith("[") or value.startswith("{"):
+            continue
+        if "=>" in value:  # Arrow function
+            continue
+        # It's a computed value — declare it
+        if value in ("true", "false"):
+            declarations.append(f"let {name}: Bool = {value}")
+        elif value.isdigit():
+            declarations.append(f"let {name}: Int = {value}")
+        elif value.startswith('"') or value.startswith("'") or value.startswith("`"):
+            clean = value.strip("\"'`")
+            declarations.append(f'let {name}: String = "{clean}"')
+        else:
+            # General computed — use the expression with proper Swift conversion
+            swift_val = value.replace("null", "nil").replace("undefined", "nil")
+            swift_val = swift_val.replace("===", "==").replace("!==", "!=")
+            declarations.append(f"var {name}: Any {{ {swift_val} }}  // TODO: Infer type")
+
+    return declarations
+
+
 def infer_type(initial: str) -> str:
-    """Infer Swift type from initial value."""
+    """Infer Swift type from initial value. Fix #5: reduced Any fallback."""
     if initial in ("true", "false"):
         return "Bool"
     if initial.isdigit():
         return "Int"
+    if re.match(r"^\d+\.\d+$", initial):
+        return "Double"
     if initial.startswith('"') or initial.startswith("'"):
         return "String"
     if initial in ("null", "nil", ""):
         return "Any?"
     if initial.startswith("["):
         return "[Any]"
+    if initial.startswith("{"):
+        return "[String: Any]"
+    if initial == "new Date()":
+        return "Date"
+    if initial == "Date.now()":
+        return "Date"
     return "Any"
 
 
@@ -423,17 +501,30 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
 
         # Extract children and process
         children = extract_jsx_children(jsx)
+        child_lines = []
         for child in children:
             child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
             if child_result.strip():
-                lines.append(child_result)
+                child_lines.append(child_result)
 
-        lines.append(f"{ind}}}")
-
-        # Add SwiftUI modifiers from Tailwind classes
+        # Add SwiftUI modifiers from Tailwind classes and inline styles
         modifiers = extract_tailwind_modifiers(jsx)
-        for mod in modifiers:
-            lines.append(f"{ind}{mod}")
+        modifiers.extend(extract_inline_style_modifiers(jsx))
+
+        # --- Fix #10: Skip empty VStack wrappers ---
+        if not child_lines and not modifiers:
+            pass  # Completely empty div with no styling — skip entirely
+        elif not child_lines and modifiers:
+            # No children but has styling — emit just a Spacer with modifiers
+            lines.append(f"{ind}Spacer()")
+            for mod in modifiers:
+                lines.append(f"{ind}    {mod}")
+        else:
+            lines.append(f"{ind}{container}{params_str} {{")
+            lines.extend(child_lines)
+            lines.append(f"{ind}}}")
+            for mod in modifiers:
+                lines.append(f"{ind}{mod}")
 
     elif jsx.startswith("<h1") or jsx.startswith("<h2") or jsx.startswith("<h3"):
         text_content = extract_text_content(jsx)
@@ -496,9 +587,19 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
             lines.append(f'{ind}    {swift_todo("Bind to state variable")}')
 
     elif jsx.startswith("{") and jsx.endswith("}"):
-        # Expression: {condition && <X>} or {condition ? <A> : <B>} or {expression}
+        # Expression: {items.map(...)}, {condition && <X>}, {condition ? <A> : <B>}, {expr}
         inner = jsx[1:-1].strip()
-        if "&&" in inner:
+
+        # --- Fix #1: .map()/.filter() → ForEach ---
+        if ".map(" in inner:
+            map_result = _convert_map_expression(inner, state_names, setters, indent_level)
+            if map_result:
+                lines.append(map_result)
+            else:
+                lines.append(f"{ind}{swift_todo(f'Port iteration: {inner[:60]}')}")
+                lines.append(f"{ind}EmptyView()")
+
+        elif "&&" in inner and ".map(" not in inner:
             parts = inner.split("&&", 1)
             condition = convert_condition(parts[0].strip(), state_names)
             element = parts[1].strip()
@@ -506,15 +607,20 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
             child_result = process_jsx_element(element, state_names, setters, indent_level + 1)
             lines.append(child_result)
             lines.append(f"{ind}}}")
-        elif "?" in inner and ":" in inner:
-            parts = inner.split("?", 1)
-            condition = convert_condition(parts[0].strip(), state_names)
-            branches = parts[1].split(":", 1)
-            lines.append(f"{ind}if {condition} {{")
-            lines.append(process_jsx_element(branches[0].strip(), state_names, setters, indent_level + 1))
-            lines.append(f"{ind}}} else {{")
-            lines.append(process_jsx_element(branches[1].strip(), state_names, setters, indent_level + 1))
-            lines.append(f"{ind}}}")
+
+        elif _is_ternary_expression(inner):
+            # --- Fix #2: depth-aware ternary parsing ---
+            cond, true_branch, false_branch = _split_ternary(inner)
+            if cond is not None:
+                condition = convert_condition(cond, state_names)
+                lines.append(f"{ind}if {condition} {{")
+                lines.append(process_jsx_element(true_branch.strip(), state_names, setters, indent_level + 1))
+                lines.append(f"{ind}}} else {{")
+                lines.append(process_jsx_element(false_branch.strip(), state_names, setters, indent_level + 1))
+                lines.append(f"{ind}}}")
+            else:
+                text_expr = convert_text_expression(inner, state_names)
+                lines.append(f"{ind}Text({text_expr})")
         else:
             text_expr = convert_text_expression(inner, state_names)
             lines.append(f"{ind}Text({text_expr})")
@@ -575,31 +681,234 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
         lines.append(f"{ind}    .foregroundStyle(.secondary)")
 
     else:
-        # Unknown element — check if it's a React component or HTML element
+        # Unknown element — check if it's a React component (PascalCase) or HTML element
         tag = re.match(r"<([\w.]+)", jsx)
         tag_name = tag.group(1) if tag else "element"
 
-        # Check if it has children — if so, try to process as a container
-        children = extract_jsx_children(jsx)
-        if children and len(children) > 0 and not _looks_like_raw_html(jsx):
-            lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
-            lines.append(f"{ind}VStack {{")
-            for child in children:
-                child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
-                if child_result.strip():
-                    lines.append(child_result)
-            lines.append(f"{ind}}}")
-        else:
-            text = extract_text_content(jsx)
-            if text and not _looks_like_raw_html(text):
-                lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
-                text_expr = convert_text_expression(text, state_names)
-                lines.append(f"{ind}Text({text_expr})")
+        # --- Fix #3: Cross-file component references ---
+        if tag_name and tag_name[0].isupper() and not tag_name.startswith("HTML"):
+            # PascalCase = custom React component → generate Swift view reference
+            view_name = tag_name if tag_name.endswith("View") else f"{tag_name}View"
+            props = _extract_component_props(jsx)
+            children = extract_jsx_children(jsx)
+
+            if props:
+                prop_args = ", ".join(
+                    f"{p['name']}: {_convert_prop_value(p['value'], state_names)}"
+                    for p in props if p["name"] != "key"
+                )
+                if children:
+                    lines.append(f"{ind}{view_name}({prop_args}) {{")
+                    for child in children:
+                        child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+                        if child_result.strip():
+                            lines.append(child_result)
+                    lines.append(f"{ind}}}")
+                else:
+                    lines.append(f"{ind}{view_name}({prop_args})")
+            elif children:
+                lines.append(f"{ind}{view_name} {{")
+                for child in children:
+                    child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+                    if child_result.strip():
+                        lines.append(child_result)
+                lines.append(f"{ind}}}")
             else:
+                lines.append(f"{ind}{view_name}()")
+        else:
+            # HTML element — try to process as container or text
+            children = extract_jsx_children(jsx)
+            if children and len(children) > 0 and not _looks_like_raw_html(jsx):
                 lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
-                lines.append(f"{ind}EmptyView()")
+                lines.append(f"{ind}VStack {{")
+                for child in children:
+                    child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+                    if child_result.strip():
+                        lines.append(child_result)
+                lines.append(f"{ind}}}")
+            else:
+                text = extract_text_content(jsx)
+                if text and not _looks_like_raw_html(text):
+                    lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
+                    text_expr = convert_text_expression(text, state_names)
+                    lines.append(f"{ind}Text({text_expr})")
+                else:
+                    lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
+                    lines.append(f"{ind}EmptyView()")
 
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# .map()/.filter() -> ForEach conversion (Fix #1)
+# ---------------------------------------------------------------------------
+
+def _convert_map_expression(expr: str, state_names: set, setters: dict, indent_level: int) -> str | None:
+    """Convert items.map(item => <Element />) to ForEach."""
+    ind = "    " * indent_level
+
+    # Handle .filter(...).map(...) chains
+    filter_clause = ""
+    filter_match = re.match(r"(.+?)\.filter\s*\(\s*\(?\s*(\w+)\s*\)?\s*=>\s*(.+?)\)\.map\s*\(", expr, re.DOTALL)
+    if filter_match:
+        collection = filter_match.group(1).strip()
+        filter_var = filter_match.group(2).strip()
+        filter_cond = filter_match.group(3).strip()
+        # Convert the filter condition to Swift
+        filter_cond = filter_cond.replace("===", "==").replace("!==", "!=")
+        filter_cond = filter_cond.replace("null", "nil").replace("undefined", "nil")
+        filter_clause = f".filter {{ {filter_var} in {filter_cond} }}"
+        # Now parse the .map part from after .filter(...)
+        map_start = expr.find(".map(", filter_match.end() - 5)
+        if map_start == -1:
+            return None
+        map_expr = expr[map_start:]
+    else:
+        # Plain .map() — find the collection and .map( call
+        map_pos = _find_map_call(expr)
+        if map_pos == -1:
+            return None
+        collection = expr[:map_pos].strip()
+        map_expr = expr[map_pos:]
+
+    # Parse the .map((item) => ...) or .map((item, index) => ...)
+    map_match = re.match(r"\.map\s*\(\s*\(?\s*(\w+)(?:\s*,\s*(\w+))?\s*\)?\s*=>\s*", map_expr, re.DOTALL)
+    if not map_match:
+        return None
+
+    item_var = map_match.group(1).strip()
+    index_var = map_match.group(2)
+
+    # Extract the callback body — track parens to find the end
+    body_start = map_match.end()
+    remaining = map_expr[body_start:]
+
+    # The body might be wrapped in parens: .map(item => ( <JSX> ))
+    if remaining.startswith("("):
+        body = _extract_balanced(remaining, "(", ")")
+        if body:
+            body = body[1:-1].strip()  # Remove outer parens
+    else:
+        # Find the closing ) of .map() by tracking depth
+        depth = 1  # We're inside .map(
+        i = 0
+        while i < len(remaining) and depth > 0:
+            ch = remaining[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        body = remaining[:i].strip()
+
+    if not body:
+        return None
+
+    # Build SwiftUI ForEach
+    lines = []
+    swift_collection = collection.replace("?.", "?.")
+    if filter_clause:
+        swift_collection = f"{swift_collection}{filter_clause}"
+
+    lines.append(f"{ind}ForEach({swift_collection}, id: \\.self) {{ {item_var} in")
+    child_result = process_jsx_element(body, state_names, setters, indent_level + 1)
+    lines.append(child_result)
+    lines.append(f"{ind}}}")
+
+    return "\n".join(lines)
+
+
+def _find_map_call(expr: str) -> int:
+    """Find the position of the .map( call, skipping .map inside strings/nested calls."""
+    # Find the last .map( that's at the top level
+    i = len(expr) - 1
+    while i >= 0:
+        if expr[i:i+5] == ".map(":
+            return i
+        i -= 1
+    return -1
+
+
+def _extract_balanced(text: str, open_ch: str, close_ch: str) -> str | None:
+    """Extract a balanced substring from text starting with open_ch."""
+    if not text or text[0] != open_ch:
+        return None
+    depth = 0
+    for i, ch in enumerate(text):
+        if ch == open_ch:
+            depth += 1
+        elif ch == close_ch:
+            depth -= 1
+            if depth == 0:
+                return text[:i + 1]
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Depth-aware ternary parsing (Fix #2)
+# ---------------------------------------------------------------------------
+
+def _is_ternary_expression(inner: str) -> bool:
+    """Check if an expression is a ternary (not just optional chaining with ?)."""
+    depth = 0
+    for i, ch in enumerate(inner):
+        if ch in "({[<":
+            depth += 1
+        elif ch in ")}]>":
+            depth -= 1
+        elif ch == "?" and depth == 0:
+            # Check it's not optional chaining (?.)
+            if i + 1 < len(inner) and inner[i + 1] == ".":
+                continue
+            # It's a ternary ? at top level
+            return True
+    return False
+
+
+def _split_ternary(inner: str) -> tuple[str | None, str, str]:
+    """Split a ternary expression into (condition, true_branch, false_branch).
+    Uses depth tracking to handle nested ternaries and optional chaining correctly."""
+    # Find the top-level ? (not ?.)
+    q_pos = -1
+    depth = 0
+    for i, ch in enumerate(inner):
+        if ch in "({[<":
+            depth += 1
+        elif ch in ")}]>":
+            depth -= 1
+        elif ch == "?" and depth == 0:
+            if i + 1 < len(inner) and inner[i + 1] == ".":
+                continue
+            q_pos = i
+            break
+
+    if q_pos == -1:
+        return None, "", ""
+
+    condition = inner[:q_pos].strip()
+    rest = inner[q_pos + 1:].strip()
+
+    # Find the matching : at the same depth
+    colon_pos = -1
+    depth = 0
+    for i, ch in enumerate(rest):
+        if ch in "({[<":
+            depth += 1
+        elif ch in ")}]>":
+            depth -= 1
+        elif ch == ":" and depth == 0:
+            colon_pos = i
+            break
+
+    if colon_pos == -1:
+        return None, "", ""
+
+    true_branch = rest[:colon_pos].strip()
+    false_branch = rest[colon_pos + 1:].strip()
+
+    return condition, true_branch, false_branch
 
 
 # ---------------------------------------------------------------------------
@@ -807,6 +1116,102 @@ def extract_jsx_children(jsx: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Component prop extraction (Fix #3)
+# ---------------------------------------------------------------------------
+
+def _extract_component_props(jsx: str) -> list[dict]:
+    """Extract props from a JSX component tag like <Card title={x} size='lg' />."""
+    props = []
+    # Find the opening tag content
+    tag_match = re.match(r"<[\w.]+\s+(.*?)(?:/>|>)", jsx, re.DOTALL)
+    if not tag_match:
+        return props
+
+    attrs_str = tag_match.group(1).strip()
+    # Parse individual attributes
+    # Match: name={expr}, name="string", name='string', name (boolean)
+    i = 0
+    while i < len(attrs_str):
+        # Skip whitespace
+        while i < len(attrs_str) and attrs_str[i] in " \t\n\r":
+            i += 1
+        if i >= len(attrs_str):
+            break
+
+        # Match attribute name
+        name_match = re.match(r"(\w+)", attrs_str[i:])
+        if not name_match:
+            i += 1
+            continue
+
+        name = name_match.group(1)
+        i += name_match.end()
+
+        # Skip whitespace
+        while i < len(attrs_str) and attrs_str[i] in " \t":
+            i += 1
+
+        if i >= len(attrs_str) or attrs_str[i] != "=":
+            # Boolean prop: <Component disabled />
+            props.append({"name": name, "value": "true"})
+            continue
+
+        i += 1  # skip =
+
+        # Skip whitespace
+        while i < len(attrs_str) and attrs_str[i] in " \t":
+            i += 1
+
+        if i >= len(attrs_str):
+            break
+
+        if attrs_str[i] == "{":
+            # Expression value: {expr}
+            depth = 0
+            start = i
+            while i < len(attrs_str):
+                if attrs_str[i] == "{":
+                    depth += 1
+                elif attrs_str[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        i += 1
+                        break
+                i += 1
+            value = attrs_str[start + 1:i - 1].strip()
+            props.append({"name": name, "value": value})
+        elif attrs_str[i] in "\"'":
+            # String value
+            quote = attrs_str[i]
+            i += 1
+            start = i
+            while i < len(attrs_str) and attrs_str[i] != quote:
+                i += 1
+            value = attrs_str[start:i]
+            i += 1
+            props.append({"name": name, "value": f'"{value}"'})
+        else:
+            i += 1
+
+    return props
+
+
+def _convert_prop_value(value: str, state_names: set) -> str:
+    """Convert a JSX prop value to a Swift expression."""
+    value = value.strip()
+    if value in ("true", "false"):
+        return value
+    if value.isdigit():
+        return value
+    if value.startswith('"') or value.startswith("'"):
+        return value.replace("'", '"')
+    # Replace null/undefined
+    value = value.replace("null", "nil").replace("undefined", "nil")
+    # Optional chaining stays the same
+    return value
+
+
+# ---------------------------------------------------------------------------
 # Tailwind -> SwiftUI modifier conversion
 # ---------------------------------------------------------------------------
 
@@ -913,6 +1318,119 @@ def extract_image_modifiers(jsx: str) -> list[str]:
                 modifiers.append(f".frame(width: {px})")
             else:
                 modifiers.append(f".frame(height: {px})")
+    return modifiers
+
+
+# ---------------------------------------------------------------------------
+# Inline CSS style={{}} conversion (Fix #4)
+# ---------------------------------------------------------------------------
+
+CSS_TO_SWIFTUI = {
+    "color": lambda v: f".foregroundStyle({_css_color(v)})",
+    "background-color": lambda v: f".background({_css_color(v)})",
+    "backgroundColor": lambda v: f".background({_css_color(v)})",
+    "font-size": lambda v: f".font(.system(size: {_css_number(v)}))",
+    "fontSize": lambda v: f".font(.system(size: {_css_number(v)}))",
+    "font-weight": lambda v: f".fontWeight({_css_font_weight(v)})",
+    "fontWeight": lambda v: f".fontWeight({_css_font_weight(v)})",
+    "padding": lambda v: f".padding({_css_number(v)})",
+    "margin": lambda v: f".padding({_css_number(v)})",
+    "border-radius": lambda v: f".clipShape(RoundedRectangle(cornerRadius: {_css_number(v)}))",
+    "borderRadius": lambda v: f".clipShape(RoundedRectangle(cornerRadius: {_css_number(v)}))",
+    "opacity": lambda v: f".opacity({v})",
+    "width": lambda v: f".frame(width: {_css_number(v)})",
+    "height": lambda v: f".frame(height: {_css_number(v)})",
+    "max-width": lambda v: f".frame(maxWidth: {_css_number(v)})",
+    "maxWidth": lambda v: f".frame(maxWidth: {_css_number(v)})",
+    "min-height": lambda v: f".frame(minHeight: {_css_number(v)})",
+    "minHeight": lambda v: f".frame(minHeight: {_css_number(v)})",
+    "text-align": lambda v: f".multilineTextAlignment({_css_text_align(v)})",
+    "textAlign": lambda v: f".multilineTextAlignment({_css_text_align(v)})",
+    "overflow": lambda v: ".clipped()" if v in ("hidden", "'hidden'", '"hidden"') else "",
+    "display": lambda v: "",  # Handled by container type
+    "flex-direction": lambda v: "",  # Handled by VStack/HStack
+    "flexDirection": lambda v: "",  # Handled by VStack/HStack
+}
+
+
+def _css_color(value: str) -> str:
+    """Convert a CSS color value to SwiftUI Color."""
+    value = value.strip().strip("'\"")
+    if value.startswith("var(--"):
+        # CSS custom property → generate a named color reference
+        name = value[6:-1].replace("-", "_")
+        return f'Color("{name}")'
+    color_map = {
+        "white": ".white", "black": ".black", "red": ".red", "blue": ".blue",
+        "green": ".green", "gray": ".gray", "yellow": ".yellow", "orange": ".orange",
+        "transparent": ".clear",
+    }
+    if value.lower() in color_map:
+        return color_map[value.lower()]
+    if value.startswith("#"):
+        return f'Color(hex: "{value}")'
+    if value.startswith("rgb"):
+        return f'Color("{value}")'  # Placeholder
+    return f'Color("{value}")'
+
+
+def _css_number(value: str) -> str:
+    """Extract a numeric value from CSS (strip px, rem, em, etc.)."""
+    value = value.strip().strip("'\"")
+    m = re.match(r"([\d.]+)", value)
+    if m:
+        num = m.group(1)
+        if "rem" in value:
+            return str(int(float(num) * 16))
+        if "em" in value:
+            return str(int(float(num) * 16))
+        return num
+    if value == "100%":
+        return ".infinity"
+    return "0"
+
+
+def _css_font_weight(value: str) -> str:
+    """Convert CSS font-weight to SwiftUI."""
+    value = value.strip().strip("'\"")
+    weight_map = {
+        "bold": ".bold", "700": ".bold", "600": ".semibold",
+        "500": ".medium", "400": ".regular", "300": ".light",
+        "normal": ".regular",
+    }
+    return weight_map.get(value, ".regular")
+
+
+def _css_text_align(value: str) -> str:
+    """Convert CSS text-align to SwiftUI."""
+    value = value.strip().strip("'\"")
+    align_map = {"center": ".center", "left": ".leading", "right": ".trailing"}
+    return align_map.get(value, ".leading")
+
+
+def extract_inline_style_modifiers(jsx: str) -> list[str]:
+    """Extract SwiftUI modifiers from inline style={{...}} objects."""
+    modifiers = []
+    # Match style={{ key: value, key: 'value' }}
+    style_match = re.search(r'style=\{\{([^}]+)\}\}', jsx)
+    if not style_match:
+        # Also try style={someVariable} — can't convert, add TODO
+        style_var = re.search(r'style=\{(\w+)\}', jsx)
+        if style_var:
+            modifiers.append(f"// TODO: Apply styles from {style_var.group(1)}")
+        return modifiers
+
+    style_str = style_match.group(1).strip()
+    # Parse key-value pairs (handles both CSS kebab-case and JS camelCase)
+    for pair in re.finditer(r"([\w-]+)\s*:\s*([^,}]+)", style_str):
+        prop = pair.group(1).strip()
+        value = pair.group(2).strip().rstrip(",")
+
+        if prop in CSS_TO_SWIFTUI:
+            mod = CSS_TO_SWIFTUI[prop](value)
+            if mod:
+                modifiers.append(mod)
+
     return modifiers
 
 
@@ -1077,7 +1595,7 @@ def convert_inline_struct(name: str, fields: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 def generate_preview(view_name: str, component: dict) -> str:
-    """Generate a SwiftUI preview."""
+    """Generate a SwiftUI preview. Fix #11: uses correct Swift property names."""
     lines = ["#Preview {"]
 
     # Build initializer with sample values
@@ -1085,8 +1603,21 @@ def generate_preview(view_name: str, component: dict) -> str:
     for prop in component["props"]:
         if prop["default"] is not None:
             continue  # Skip props with defaults
-        sample = get_sample_value(prop["type"])
-        args.append(f'{prop["name"]}: {sample}')
+
+        prop_name = prop["name"]
+        prop_type = prop["type"]
+
+        # Fix #11: Skip children/content props — can't easily preview AnyView
+        if prop_name == "children" or prop_type == "AnyView":
+            continue
+
+        # Fix #11: Map callback props — skip them (they have defaults of nil or are optional)
+        if prop_type == "() -> Void" and prop.get("optional"):
+            continue
+
+        # Use the prop name as it appears in the struct (convert_prop uses the same name)
+        sample = get_sample_value(prop_type)
+        args.append(f'{prop_name}: {sample}')
 
     args_str = ", ".join(args)
     lines.append(f"    {view_name}({args_str})")
@@ -1098,6 +1629,9 @@ def generate_preview(view_name: str, component: dict) -> str:
 def get_sample_value(swift_type: str) -> str:
     """Get a sample value for a Swift type (for previews)."""
     type_clean = swift_type.rstrip("?")
+    # If optional, nil is always valid
+    if swift_type.endswith("?"):
+        return "nil"
     samples = {
         "String": '"Sample"',
         "Int": "1",
@@ -1105,8 +1639,22 @@ def get_sample_value(swift_type: str) -> str:
         "Bool": "true",
         "URL": 'URL(string: "https://example.com")!',
         "Date": ".now",
+        "() -> Void": "{}",
+        "AnyView": "AnyView(Text(\"Preview\"))",
+        "[String]": '["Sample"]',
+        "[Int]": "[1]",
+        "[Any]": "[]",
+        "Data": "Data()",
     }
-    return samples.get(type_clean, '""')
+    if type_clean in samples:
+        return samples[type_clean]
+    # Array types
+    if type_clean.startswith("[") and type_clean.endswith("]"):
+        return "[]"
+    # Custom types — try empty initializer
+    if type_clean[0:1].isupper():
+        return f"{type_clean}()"
+    return '""'
 
 
 # ---------------------------------------------------------------------------
@@ -1149,7 +1697,49 @@ def _cleanup_swift_output(code: str) -> str:
                 if "//" not in line:
                     line = line.replace("undefined", "nil")
         cleaned.append(line)
+
+    # --- Fix #9: Collapse excessive consecutive TODO comments ---
+    cleaned = _collapse_consecutive_todos(cleaned)
+
     return "\n".join(cleaned)
+
+
+def _collapse_consecutive_todos(lines: list[str]) -> list[str]:
+    """Fix #9: Collapse runs of consecutive TODO comments into grouped summaries.
+    Keeps at most 5 TODOs in a row, then adds '... and N more items to port'."""
+    MAX_CONSECUTIVE = 5
+    result = []
+    todo_run = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("// TODO:"):
+            todo_run.append(line)
+        else:
+            if len(todo_run) > MAX_CONSECUTIVE:
+                # Keep first MAX_CONSECUTIVE, summarize the rest
+                result.extend(todo_run[:MAX_CONSECUTIVE])
+                remaining = len(todo_run) - MAX_CONSECUTIVE
+                indent = "        "
+                if todo_run[0]:
+                    indent_match = re.match(r"^(\s*)", todo_run[0])
+                    if indent_match:
+                        indent = indent_match.group(1)
+                result.append(f"{indent}// TODO: ... and {remaining} more items to port (see source file)")
+            else:
+                result.extend(todo_run)
+            todo_run = []
+            result.append(line)
+
+    # Handle trailing TODOs
+    if len(todo_run) > MAX_CONSECUTIVE:
+        result.extend(todo_run[:MAX_CONSECUTIVE])
+        remaining = len(todo_run) - MAX_CONSECUTIVE
+        result.append(f"        // TODO: ... and {remaining} more items to port (see source file)")
+    else:
+        result.extend(todo_run)
+
+    return result
 
 
 def generate_view_from_manifest(view_name: str, manifest_entry: dict) -> str:

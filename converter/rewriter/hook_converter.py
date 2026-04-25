@@ -212,7 +212,8 @@ def extract_use_state(body: str) -> list[dict]:
 
 
 def convert_state_init(name: str, ts_type: str | None, initial: str) -> tuple[str, str]:
-    """Convert useState type and initial value to Swift."""
+    """Convert useState type and initial value to Swift.
+    Fix #6: Ensures all nil-initialized state consistently gets ? suffix."""
     # Determine type
     if ts_type:
         swift_type = map_type(ts_type)
@@ -231,6 +232,7 @@ def convert_state_init(name: str, ts_type: str | None, initial: str) -> tuple[st
 
     # Determine initial value
     if initial in ("null", "nil", ""):
+        # Fix #6: Always ensure ? suffix for nil-initialized state
         if not swift_type.endswith("?"):
             swift_type += "?"
         swift_initial = "nil"
@@ -247,6 +249,15 @@ def convert_state_init(name: str, ts_type: str | None, initial: str) -> tuple[st
         swift_initial = "[]"
     else:
         swift_initial = initial
+
+    # Fix #6: If the TS type itself contained | null or | undefined,
+    # map_type already added ?, but ensure initial value matches
+    if swift_type.endswith("?") and swift_initial not in ("nil", "[]"):
+        # Type is optional but has a non-nil initial — that's fine, keep it
+        pass
+    elif "| null" in (ts_type or "") or "| undefined" in (ts_type or ""):
+        if not swift_type.endswith("?"):
+            swift_type += "?"
 
     return swift_type, swift_initial
 

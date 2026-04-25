@@ -25,18 +25,59 @@ TS_TO_SWIFT_TYPES = {
     "unknown": "Any",
     "bigint": "Int64",
     "symbol": "String",
-    # React-specific types
+    # React-specific types → SwiftUI callback signatures (Fix #7)
     "React.ReactNode": "AnyView",
     "ReactNode": "AnyView",
     "React.ReactElement": "AnyView",
     "JSX.Element": "AnyView",
     "React.CSSProperties": "[String: Any]",
-    "React.ChangeEvent": "Any",
-    "React.FormEvent": "Any",
-    "React.MouseEvent": "Any",
-    "HTMLButtonElement": "Any",
-    "HTMLInputElement": "Any",
-    "HTMLFormElement": "Any",
+    "React.ChangeEvent<HTMLInputElement>": "String",
+    "React.ChangeEvent<HTMLTextAreaElement>": "String",
+    "React.ChangeEvent<HTMLSelectElement>": "String",
+    "React.ChangeEvent": "String",
+    "React.FormEvent<HTMLFormElement>": "() -> Void",
+    "React.FormEvent": "() -> Void",
+    "React.MouseEvent<HTMLButtonElement>": "() -> Void",
+    "React.MouseEvent": "() -> Void",
+    "React.KeyboardEvent": "() -> Void",
+    "React.FocusEvent": "() -> Void",
+    "React.TouchEvent": "() -> Void",
+    "React.DragEvent": "() -> Void",
+    "React.ClipboardEvent": "() -> Void",
+    "React.WheelEvent": "() -> Void",
+    "ChangeEvent<HTMLInputElement>": "String",
+    "FormEvent<HTMLFormElement>": "() -> Void",
+    "MouseEvent<HTMLButtonElement>": "() -> Void",
+    "HTMLButtonElement": "() -> Void",
+    "HTMLInputElement": "String",
+    "HTMLFormElement": "() -> Void",
+    "HTMLTextAreaElement": "String",
+    "HTMLSelectElement": "String",
+    "HTMLDivElement": "() -> Void",
+    "HTMLElement": "() -> Void",
+    # Common web types with better Swift equivalents
+    "Blob": "Data",
+    "File": "Data",
+    "FormData": "[String: Any]",
+    "URLSearchParams": "[String: String]",
+    "AbortController": "Task<Void, Never>",
+    "AbortSignal": "Task<Void, Never>",
+    "Response": "Data",
+    "Headers": "[String: String]",
+    "RequestInit": "[String: Any]",
+    "JSON": "Any",
+    "RegExp": "Regex<Substring>",
+    "Error": "Error",
+    "TypeError": "Error",
+    "Buffer": "Data",
+    "Uint8Array": "[UInt8]",
+    "ArrayBuffer": "Data",
+    "ReadableStream": "AsyncStream<Data>",
+    "WritableStream": "AsyncStream<Data>",
+    "EventTarget": "Any",
+    "Event": "() -> Void",
+    "Timer": "Timer",
+    "Timeout": "Timer",
 }
 
 # Common complex type patterns
@@ -90,9 +131,49 @@ def map_type(ts_type: str) -> str:
     if ts_type in ("float", "double", "Float", "Double"):
         return "Double"
 
+    # Handle function types: (arg: Type) => ReturnType → (Type) -> ReturnType
+    fn_match = re.match(r"\(([^)]*)\)\s*=>\s*(.+)$", ts_type)
+    if fn_match:
+        params = fn_match.group(1).strip()
+        ret = fn_match.group(2).strip()
+        if not params:
+            return f"() -> {map_type(ret)}"
+        # Parse param types
+        param_types = []
+        for p in params.split(","):
+            p = p.strip()
+            if ":" in p:
+                param_types.append(map_type(p.split(":", 1)[1].strip()))
+            else:
+                param_types.append(map_type(p))
+        return f"({', '.join(param_types)}) -> {map_type(ret)}"
+
+    # Handle tuple types: [Type1, Type2] → (Type1, Type2)
+    if ts_type.startswith("[") and ts_type.endswith("]") and "," in ts_type:
+        inner = ts_type[1:-1]
+        parts = [map_type(p.strip()) for p in inner.split(",")]
+        return f"({', '.join(parts)})"
+
+    # Handle union types (non-null): string | number → String (use first type)
+    if " | " in ts_type:
+        parts = [p.strip() for p in ts_type.split("|")]
+        non_null = [p for p in parts if p not in ("null", "undefined")]
+        if len(non_null) == 1:
+            return f"{map_type(non_null[0])}?"
+        if len(non_null) >= 2:
+            # Use first concrete type with a TODO
+            return map_type(non_null[0])
+
     # Pass through PascalCase types (likely custom types)
     if ts_type[0].isupper():
         return ts_type
+
+    # Handle common camelCase identifiers that are likely custom types
+    if ts_type[0].islower() and ts_type not in ("true", "false", "nil"):
+        # Try capitalizing — might be a misidentified custom type
+        capitalized = ts_type[0].upper() + ts_type[1:]
+        if capitalized in TS_TO_SWIFT_TYPES:
+            return TS_TO_SWIFT_TYPES[capitalized]
 
     return "Any"
 
