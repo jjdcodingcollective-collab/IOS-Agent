@@ -48,7 +48,10 @@ def convert_component_file(source: str, relative_path: str, manifest_entry: dict
     # Add preview
     blocks.append(generate_preview(view_name, component))
 
-    return format_swift("\n".join(blocks))
+    # Final cleanup: remove leaked JS artifacts from the output
+    result = format_swift("\n".join(blocks))
+    result = _cleanup_swift_output(result)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -57,16 +60,16 @@ def convert_component_file(source: str, relative_path: str, manifest_entry: dict
 
 def extract_component(source: str) -> dict | None:
     """Extract the main React component from source."""
-    # Function component: export function Name({props})
+    # Function component: export function Name({props}) or Name({props}: Type)
     pattern = re.compile(
-        r"(?:export\s+(?:default\s+)?)?function\s+([A-Z]\w+)\s*\(\s*\{?\s*([^)]*?)\s*\}?\s*\)",
+        r"(?:export\s+(?:default\s+)?)?function\s+([A-Z]\w+)\s*\(\s*\{?\s*([^}]*?)\s*\}?\s*(?::\s*(?:\{[^}]*\}|\w+(?:\.\w+)?(?:<[^>]*>)?))?\s*\)",
         re.MULTILINE,
     )
     m = pattern.search(source)
     if not m:
         # Arrow component: const Name = ({props}) =>
         pattern = re.compile(
-            r"(?:export\s+)?const\s+([A-Z]\w+)\s*(?::\s*\w+(?:\.\w+)?(?:<[^>]*>)?\s*)?=\s*\(\s*\{?\s*([^)]*?)\s*\}?\s*\)\s*(?::\s*\w+)?\s*=>",
+            r"(?:export\s+)?const\s+([A-Z]\w+)\s*(?::\s*\w+(?:\.\w+)?(?:<[^>]*>)?\s*)?=\s*\(\s*\{?\s*([^}]*?)\s*\}?\s*(?::\s*(?:\{[^}]*\}|\w+(?:\.\w+)?(?:<[^>]*>)?))?\s*\)\s*(?::\s*\w+)?\s*=>",
         )
         m = pattern.search(source)
 
@@ -110,9 +113,23 @@ def parse_props(props_str: str, full_source: str) -> list[dict]:
     if not props_str:
         return props
 
+    # Clean up destructuring artifacts
+    # Remove type annotation suffix like }: Props or }: SomeType
+    props_str = re.sub(r"\}\s*:\s*\w+(\.\w+)?(<[^>]*>)?\s*$", "", props_str)
+    # Remove stray braces
+    props_str = props_str.strip().strip("{}")
+
     for prop in props_str.split(","):
         prop = prop.strip()
         if not prop:
+            continue
+
+        # Skip spread operators (...props, ...rest)
+        if prop.startswith("..."):
+            continue
+
+        # Skip renamed destructuring like `as: Tag = "button"`
+        if prop.startswith("as:") or prop.startswith("as "):
             continue
 
         # Handle default values: prop = defaultValue
@@ -125,6 +142,11 @@ def parse_props(props_str: str, full_source: str) -> list[dict]:
         # Handle type annotations from props interface
         # Look up the interface in source
         prop_name = prop.split(":")[0].strip()
+
+        # Skip empty or invalid prop names
+        if not prop_name or not prop_name.isidentifier():
+            continue
+
         prop_type = find_prop_type(prop_name, full_source)
 
         props.append({
@@ -139,11 +161,22 @@ def parse_props(props_str: str, full_source: str) -> list[dict]:
 
 def find_prop_type(prop_name: str, source: str) -> str:
     """Try to find a prop's type from the Props interface in source."""
+    # Special case: children is always a view/content
+    if prop_name == "children":
+        return "AnyView"
+
+    # Special case: common callback patterns
+    if prop_name.startswith("on") and prop_name[2:3].isupper():
+        return "() -> Void"
+
     # Look for PropName?: type or PropName: type in interfaces
     pattern = re.compile(rf"\b{re.escape(prop_name)}\??:\s*([^;\n,}}]+)", re.MULTILINE)
     m = pattern.search(source)
     if m:
-        return map_type(m.group(1).strip())
+        raw = m.group(1).strip()
+        # Skip if the match is from a destructuring or assignment, not an interface
+        # (interface fields end with ; or are on their own line)
+        return map_type(raw)
     return "String"
 
 
@@ -216,6 +249,16 @@ def convert_prop(prop: dict) -> str:
     """Convert a React prop to a Swift property."""
     name = prop["name"]
     swift_type = prop["type"]
+
+    # Special handling for children — use @ViewBuilder content closure
+    if name == "children":
+        return "let content: AnyView  // 💡 Children prop — consider using @ViewBuilder instead"
+
+    # Special handling for callback props
+    if swift_type == "() -> Void":
+        if prop["optional"]:
+            return f"var {name}: (() -> Void)? = nil"
+        return f"let {name}: () -> Void"
 
     if prop["default"] is not None:
         default_val = convert_default(prop["default"], swift_type)
@@ -476,18 +519,85 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
             text_expr = convert_text_expression(inner, state_names)
             lines.append(f"{ind}Text({text_expr})")
 
-    else:
-        # Unknown element — output as TODO
-        tag = re.match(r"<(\w+)", jsx)
-        tag_name = tag.group(1) if tag else "element"
-        text = extract_text_content(jsx)
-        if text:
-            lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
-            text_expr = convert_text_expression(text, state_names)
-            lines.append(f"{ind}Text({text_expr})")
+    elif jsx.startswith("<a ") or jsx.startswith("<a>"):
+        href = extract_attr(jsx, "href")
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        if href:
+            lines.append(f"{ind}Link({text_expr}, destination: URL(string: \"{href}\")!)")
         else:
+            lines.append(f"{ind}Text({text_expr})")
+
+    elif jsx.startswith("<ul") or jsx.startswith("<ol"):
+        children = extract_jsx_children(jsx)
+        lines.append(f"{ind}VStack(alignment: .leading, spacing: 8) {{")
+        for child in children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+            if child_result.strip():
+                lines.append(child_result)
+        lines.append(f"{ind}}}")
+
+    elif jsx.startswith("<li"):
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        lines.append(f"{ind}HStack(alignment: .top, spacing: 8) {{")
+        lines.append(f"{ind}    Text(\"•\")")
+        lines.append(f"{ind}    Text({text_expr})")
+        lines.append(f"{ind}}}")
+
+    elif jsx.startswith("<form"):
+        children = extract_jsx_children(jsx)
+        lines.append(f"{ind}VStack(spacing: 16) {{")
+        for child in children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+            if child_result.strip():
+                lines.append(child_result)
+        lines.append(f"{ind}}}")
+
+    elif jsx.startswith("<textarea"):
+        placeholder = extract_attr(jsx, "placeholder") or ""
+        value_binding = extract_attr(jsx, "value")
+        if value_binding and value_binding in state_names:
+            lines.append(f'{ind}TextEditor(text: ${value_binding})')
+        else:
+            lines.append(f'{ind}TextEditor(text: .constant(""))')
+        lines.append(f'{ind}    .frame(minHeight: 100)')
+
+    elif jsx.startswith("<select"):
+        lines.append(f"{ind}{swift_todo('Convert <select> to Picker')}")
+        lines.append(f"{ind}EmptyView()")
+
+    elif jsx.startswith("<label"):
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        lines.append(f"{ind}Text({text_expr})")
+        lines.append(f"{ind}    .font(.caption)")
+        lines.append(f"{ind}    .foregroundStyle(.secondary)")
+
+    else:
+        # Unknown element — check if it's a React component or HTML element
+        tag = re.match(r"<([\w.]+)", jsx)
+        tag_name = tag.group(1) if tag else "element"
+
+        # Check if it has children — if so, try to process as a container
+        children = extract_jsx_children(jsx)
+        if children and len(children) > 0 and not _looks_like_raw_html(jsx):
             lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
-            lines.append(f"{ind}EmptyView()")
+            lines.append(f"{ind}VStack {{")
+            for child in children:
+                child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+                if child_result.strip():
+                    lines.append(child_result)
+            lines.append(f"{ind}}}")
+        else:
+            text = extract_text_content(jsx)
+            if text and not _looks_like_raw_html(text):
+                lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
+                text_expr = convert_text_expression(text, state_names)
+                lines.append(f"{ind}Text({text_expr})")
+            else:
+                lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
+                lines.append(f"{ind}EmptyView()")
 
     return "\n".join(lines)
 
@@ -565,9 +675,11 @@ def convert_handler(handler: dict, state_vars: list[dict]) -> str:
                 val = set_match.group(1).strip()
                 if val in ("true", "false"):
                     lines.append(f"        {sv['name']} = {val}")
-                elif val in ("null", "nil"):
+                elif val in ("null", "nil", "undefined"):
                     lines.append(f"        {sv['name']} = nil")
                 else:
+                    # Replace null/undefined in compound expressions
+                    val = val.replace("null", "nil").replace("undefined", "nil")
                     lines.append(f"        {sv['name']} = {val}")
 
     # Detect localStorage operations
@@ -827,9 +939,23 @@ def extract_alignment(jsx: str) -> str | None:
 # Expression conversion
 # ---------------------------------------------------------------------------
 
+def _looks_like_raw_html(text: str) -> bool:
+    """Check if text looks like unconverted HTML/JSX — shouldn't go in Text()."""
+    tag_count = text.count("<")
+    return tag_count > 2 or ("</" in text and "style=" in text) or "className=" in text
+
+
 def convert_text_expression(text: str, state_names: set) -> str:
     """Convert a JSX text expression to Swift string."""
     text = text.strip()
+
+    # Replace JS null/undefined with Swift nil
+    text = text.replace("null", "nil").replace("undefined", "nil")
+
+    # If it looks like unconverted JSX/HTML (contains < tags), don't dump it into Text()
+    if "<" in text and ">" in text and not text.startswith('"'):
+        # This is unconverted JSX — generate a TODO instead of raw HTML in a string
+        return '"TODO"'
 
     # Pure variable reference: {user.name}
     if text.startswith("{") and text.endswith("}"):
@@ -844,13 +970,21 @@ def convert_text_expression(text: str, state_names: set) -> str:
         result = re.sub(r"\{([^}]+)\}", lambda m: f"\\({m.group(1).strip()})", text)
         return f'"{result}"'
 
-    # Plain text
-    return f'"{text}"'
+    # Plain text — escape any inner quotes
+    escaped = text.replace('"', '\\"')
+    return f'"{escaped}"'
 
 
 def convert_condition(condition: str, state_names: set) -> str:
     """Convert a JS condition to Swift."""
     condition = condition.strip()
+
+    # Replace JS null/undefined with Swift nil
+    condition = condition.replace("=== null", "== nil").replace("!== null", "!= nil")
+    condition = condition.replace("=== undefined", "== nil").replace("!== undefined", "!= nil")
+    condition = condition.replace("== null", "== nil").replace("!= null", "!= nil")
+    condition = condition.replace("=== ", "== ").replace("!== ", "!= ")
+
     # !value -> value == nil (for optionals) or !value (for booleans)
     if condition.startswith("!"):
         inner = condition[1:].strip()
@@ -978,6 +1112,45 @@ def get_sample_value(swift_type: str) -> str:
 # ---------------------------------------------------------------------------
 # Manifest fallback
 # ---------------------------------------------------------------------------
+
+def _cleanup_swift_output(code: str) -> str:
+    """
+    Post-processing cleanup to remove leaked JavaScript artifacts.
+    This catches anything the structural converter missed.
+    """
+    lines = code.split("\n")
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip lines that are clearly leaked JS/TS (not in a comment)
+        if not stripped.startswith("//") and not stripped.startswith("*"):
+            # Leaked JS: const declarations (not valid Swift keyword)
+            if re.match(r"^\s*const\s+", stripped):
+                cleaned.append(f"        {swift_todo(f'Port JS logic: {stripped[:60]}')}")
+                continue
+            # Leaked JSX: raw HTML tags not inside a comment or string
+            if re.match(r"^\s*<[A-Z]\w+", stripped) and "Text(" not in stripped:
+                cleaned.append(f"        {swift_todo(f'Convert component: {stripped[:50]}')}")
+                cleaned.append(f"        EmptyView()")
+                continue
+            # Leaked JS: arrow functions
+            if "() =>" in stripped and "Text(" not in stripped and "//" not in stripped:
+                cleaned.append(f"        {swift_todo(f'Port callback: {stripped[:50]}')}")
+                continue
+            # Leaked JS: .map( or .filter( chains outside comments
+            if re.match(r"^\s*\.\w+\(", stripped) and ("map(" in stripped or "filter(" in stripped):
+                cleaned.append(f"        {swift_todo(f'Port iteration: {stripped[:50]}')}")
+                continue
+            # Replace any remaining null/undefined literals
+            if " null " in line or " null)" in line or " null}" in line or "= null" in line:
+                if "//" not in line:
+                    line = line.replace("null", "nil")
+            if " undefined " in line or " undefined)" in line or "= undefined" in line:
+                if "//" not in line:
+                    line = line.replace("undefined", "nil")
+        cleaned.append(line)
+    return "\n".join(cleaned)
+
 
 def generate_view_from_manifest(view_name: str, manifest_entry: dict) -> str:
     """Generate a View stub from manifest data."""

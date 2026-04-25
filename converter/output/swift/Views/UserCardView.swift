@@ -44,7 +44,7 @@ struct UserCardView: View {
     // MARK: - Props
 
     let userId: String
-    var showActions: Bool = true }: UserCardProps
+    var showActions: Bool = true
 
     // MARK: - State
 

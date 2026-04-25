@@ -25,6 +25,18 @@ TS_TO_SWIFT_TYPES = {
     "unknown": "Any",
     "bigint": "Int64",
     "symbol": "String",
+    # React-specific types
+    "React.ReactNode": "AnyView",
+    "ReactNode": "AnyView",
+    "React.ReactElement": "AnyView",
+    "JSX.Element": "AnyView",
+    "React.CSSProperties": "[String: Any]",
+    "React.ChangeEvent": "Any",
+    "React.FormEvent": "Any",
+    "React.MouseEvent": "Any",
+    "HTMLButtonElement": "Any",
+    "HTMLInputElement": "Any",
+    "HTMLFormElement": "Any",
 }
 
 # Common complex type patterns

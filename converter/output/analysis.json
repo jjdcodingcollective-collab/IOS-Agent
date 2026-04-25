@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-04-25T06:18:25.558993+00:00",
+    "generated_at": "2026-04-25T07:10:02.241275+00:00",
     "source_dir": "/storage/users/user_3AeOuDUrxI7LrpU6J21FpMneayM/projects/ios-agent/converter/test-fixtures/sample-app",
     "tool_version": "0.1.0"
   },
@@ -272,8 +272,8 @@
         "date-fns"
       ],
       "exports": [
-        "formatDate",
         "formatRelative",
+        "formatDate",
         "isRecent"
       ],
       "patterns": []
@@ -287,9 +287,9 @@
       ],
       "exports": [
         "CreateArticleInput",
-        "Article",
+        "articleService",
         "ArticleSortBy",
-        "articleService"
+        "Article"
       ],
       "patterns": [
         {
