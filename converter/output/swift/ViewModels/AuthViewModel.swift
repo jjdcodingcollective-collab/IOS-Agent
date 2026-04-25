@@ -6,6 +6,29 @@
 //  Review all TODO comments before using in production
 //
 
+// ============================================================
+// LEARN: Why Apple does it this way
+// ============================================================
+//
+// 💡 Why @Observable Class for ViewModels
+//    @Observable makes a class's properties automatically trigger view updates.
+//    Web analogy: Like a custom hook with automatic fine-grained reactivity (similar to Solid.js signals).
+//
+// 💡 Why MVVM Instead of Component + Hook
+//    MVVM separates state/logic (ViewModel) from UI (View) — Apple's recommended pattern.
+//    Web analogy: Like separating a React component's logic into a custom hook, but as a formalized pattern.
+//
+// 💡 Why @State Instead of useState()
+//    @State tells SwiftUI to own and persist this value across re-renders.
+//    Web analogy: Like useState(), but you write directly to the variable instead of calling a setter.
+//
+// 💡 Why .task {} Instead of useEffect()
+//    .task starts async work when a view appears and auto-cancels when it disappears.
+//    Web analogy: Like useEffect with automatic cleanup — cancels async work when the component unmounts.
+//
+// See learning-notes.md for full explanations.
+// ============================================================
+
 import Foundation
 import SwiftUI
 

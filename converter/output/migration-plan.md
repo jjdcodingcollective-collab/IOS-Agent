@@ -1,6 +1,6 @@
 # iOS Migration Plan
 
-> Generated: 2026-04-25T06:01:35.517402+00:00
+> Generated: 2026-04-25T06:18:25.558993+00:00
 > Source: `/storage/users/user_3AeOuDUrxI7LrpU6J21FpMneayM/projects/ios-agent/converter/test-fixtures/sample-app`
 
 ## Executive Summary

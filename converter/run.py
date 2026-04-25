@@ -6,6 +6,9 @@ Analyzes a TypeScript/React project and produces:
   2. analysis-report.md — human-readable analysis summary
   3. migration-plan.md  — file-by-file iOS conversion plan
   4. swift/             — generated Swift/SwiftUI source files
+  5. swift/App/         — entry point + navigation (Phase 4)
+  6. swift/Config/      — xcconfig + Package.swift (Phase 4)
+  7. learning-notes.md  — educational guide: WHY Apple does it this way
 
 Usage:
     python converter/run.py <source_directory> [--output <output_directory>]
@@ -15,6 +18,7 @@ Examples:
     python converter/run.py ./my-react-app --output ./converter/output
     python converter/run.py ./converter/test-fixtures/sample-app
     python converter/run.py ./my-react-app --analyze-only   # Skip code generation
+    python converter/run.py ./my-react-app --app-name MyApp # Set app name
 """
 
 import argparse
@@ -30,6 +34,7 @@ from converter.analyzer.patterns import analyze_file
 from converter.analyzer.manifest import build_manifest, generate_report
 from converter.reviewer.migration_planner import generate_migration_plan
 from converter.rewriter.engine import rewrite_project
+from converter.assembler.project_assembler import assemble_project
 
 
 def main():
@@ -44,6 +49,11 @@ def main():
         "--output", "-o",
         default=None,
         help="Output directory (default: converter/output/)",
+    )
+    parser.add_argument(
+        "--app-name",
+        default="MyApp",
+        help="Name for the generated iOS app (default: MyApp)",
     )
     parser.add_argument(
         "--analyze-only",
@@ -147,9 +157,34 @@ def main():
     for scaffold_path in result.scaffold_files:
         log(f"  [SCAFFOLD] {scaffold_path}")
 
+    # =====================================================================
+    # Phase 4: Assemble
+    # =====================================================================
+    log(f"\n{'='*60}")
+    log(f"  PHASE 4: Assembling iOS project")
+    log(f"{'='*60}")
+
+    assembly = assemble_project(
+        manifest=manifest,
+        rewrite_result=result,
+        output_dir=str(swift_output_dir),
+        app_name=args.app_name,
+    )
+
+    for rel_path in sorted(assembly.generated_files.keys()):
+        log(f"  [ASSEMBLE] {rel_path}")
+
+    log(f"  [LEARN] learning-notes.md")
+
+    # =====================================================================
     # Write conversion summary
+    # =====================================================================
     summary_lines = ["# Code Generation Summary\n"]
-    summary_lines.append(f"**{len(result.files)} files converted**, {len(result.scaffold_files)} scaffold files generated.\n")
+    summary_lines.append(f"**App Name:** {args.app_name}\n")
+    summary_lines.append(f"**{len(result.files)} files converted**, "
+                         f"{len(result.scaffold_files)} scaffold files, "
+                         f"{len(assembly.generated_files)} project files generated.\n")
+
     summary_lines.append("## Generated Files\n")
     summary_lines.append("| Source | Output | Status |")
     summary_lines.append("|---|---|---|")
@@ -158,12 +193,27 @@ def main():
         summary_lines.append(f"| `{r.source_path}` | `{r.output_path}` | {status} |")
     for sp in result.scaffold_files:
         summary_lines.append(f"| *(generated)* | `{sp}` | SCAFFOLD |")
+    for ap in sorted(assembly.generated_files.keys()):
+        summary_lines.append(f"| *(assembled)* | `{ap}` | PROJECT |")
+
+    summary_lines.append("\n## iOS Project Structure\n")
+    summary_lines.append("```")
+    summary_lines.append(f"{args.app_name}/")
+    for path in assembly.project_structure:
+        depth = path.count("/")
+        prefix = "│   " * depth + "├── "
+        filename = Path(path).name
+        summary_lines.append(f"{prefix}{filename}")
+    summary_lines.append("```")
+
     summary_lines.append("\n## Next Steps\n")
     summary_lines.append("1. Review all generated `.swift` files for `// TODO:` comments")
-    summary_lines.append("2. Create an Xcode project and add these files")
-    summary_lines.append("3. Resolve any compilation errors")
-    summary_lines.append("4. Test each view in SwiftUI previews")
-    summary_lines.append("5. Wire up navigation in the app entry point")
+    summary_lines.append("2. Read `learning-notes.md` to understand iOS patterns")
+    summary_lines.append("3. Open in Xcode: create new iOS App project, add generated files")
+    summary_lines.append("4. Update `Debug.xcconfig` / `Release.xcconfig` with real values")
+    summary_lines.append("5. Resolve any compilation errors (check TODOs)")
+    summary_lines.append("6. Test each view in SwiftUI previews")
+    summary_lines.append("7. Build and run on Simulator")
 
     gen_summary_path = output_dir / "generation-summary.md"
     gen_summary_path.write_text("\n".join(summary_lines), encoding="utf-8")
@@ -177,11 +227,14 @@ def main():
         all_outputs.append(swift_output_dir / r.output_path)
     for sp in result.scaffold_files:
         all_outputs.append(swift_output_dir / sp)
+    for ap in assembly.generated_files:
+        all_outputs.append(swift_output_dir / ap)
+    all_outputs.append(output_dir / "learning-notes.md")
 
-    _print_summary(log, manifest, all_outputs, result)
+    _print_summary(log, manifest, all_outputs, result, assembly)
 
 
-def _print_summary(log, manifest, output_files, rewrite_result=None):
+def _print_summary(log, manifest, output_files, rewrite_result=None, assembly=None):
     """Print the final summary."""
     s = manifest["summary"]
     total = s["total_patterns"] or 1
@@ -203,6 +256,10 @@ def _print_summary(log, manifest, output_files, rewrite_result=None):
         log(f"  Swift files generated: {total_files}")
         log(f"  Successful:           {success_count}/{len(rewrite_result.files)}")
         log(f"  Scaffold files:       {len(rewrite_result.scaffold_files)}")
+
+    if assembly:
+        log(f"  Project files:        {len(assembly.generated_files)}")
+        log(f"  Learning notes:       learning-notes.md")
 
     log(f"")
     log(f"  Output directory:")

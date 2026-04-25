@@ -6,6 +6,29 @@
 //  Review all TODO comments before using in production
 //
 
+// ============================================================
+// LEARN: Why Apple does it this way
+// ============================================================
+//
+// 💡 Why Views Are Structs, Not Classes
+//    SwiftUI views are lightweight value types — recreated often, not mutated.
+//    Web analogy: Like React's virtual DOM diffing, but using value-type structs instead of JS objects.
+//
+// 💡 Why body Is a Computed Property
+//    body is recalculated on every state change — it's your render function.
+//    Web analogy: Equivalent to the return statement in a React function component.
+//
+// 💡 Why .modifier() Chaining Instead of CSS Classes
+//    SwiftUI modifiers are type-safe, composable functions — not string class names.
+//    Web analogy: Like Tailwind utility classes, but as type-checked function calls instead of strings.
+//
+// 💡 Why @Observable Class for ViewModels
+//    @Observable makes a class's properties automatically trigger view updates.
+//    Web analogy: Like a custom hook with automatic fine-grained reactivity (similar to Solid.js signals).
+//
+// See learning-notes.md for full explanations.
+// ============================================================
+
 import SwiftUI
 
 struct User: Codable, Identifiable {

@@ -6,6 +6,29 @@
 //  Review all TODO comments before using in production
 //
 
+// ============================================================
+// LEARN: Why Apple does it this way
+// ============================================================
+//
+// 💡 Why Actor for the API Client
+//    Actors prevent data races in concurrent code — thread safety guaranteed by the compiler.
+//    Web analogy: Like a Web Worker with built-in message passing, but the compiler enforces the safety.
+//
+// 💡 Why URLSession Instead of fetch()/Axios
+//    URLSession is Apple's built-in networking layer — no packages needed.
+//    Web analogy: The native fetch() API, but with built-in caching, background downloads, and OS integration.
+//
+// 💡 Why Swift async/await Looks Like JavaScript's
+//    Swift adopted async/await after JavaScript — nearly identical syntax, stricter safety.
+//    Web analogy: Same syntax as JS async/await, but with compile-time thread safety checks.
+//
+// 💡 Why Codable Instead of Manual JSON Parsing
+//    Codable lets the compiler generate JSON encoding/decoding automatically.
+//    Web analogy: Like Zod validation built into the language, but zero runtime cost.
+//
+// See learning-notes.md for full explanations.
+// ============================================================
+
 import Foundation
 
 // MARK: - Service
