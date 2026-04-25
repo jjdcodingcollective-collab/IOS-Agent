@@ -2,10 +2,13 @@
 Pattern Detector — Phase 1, Step 2
 Identifies React/TypeScript patterns in source files and classifies them
 for iOS conversion.
+
+Phase C (BUILD-7): Integrates Next.js-specific pattern detection.
 """
 
 import re
 from dataclasses import dataclass, field
+from .nextjs_detector import detect_nextjs_patterns, NextJsPattern
 
 
 @dataclass
@@ -392,6 +395,14 @@ def classify_file(relative_path: str, content: str, patterns: list[DetectedPatte
     """Classify the file type based on path, content, and detected patterns."""
     path_lower = relative_path.lower()
 
+    # BUILD-7: Next.js API routes → service (server-only, will be flagged)
+    if any(p.pattern_type == "nextjs_api_route" or p.pattern_type == "nextjs_middleware" for p in patterns):
+        return "service"
+
+    # BUILD-8: State management stores → dedicated "state" type
+    if _is_state_management_file(content, patterns):
+        return "state"
+
     # Path-based classification
     if any(seg in path_lower for seg in ["route", "page", "app/", "pages/"]):
         if any(p.pattern_type == "component" for p in patterns):
@@ -434,6 +445,47 @@ def classify_file(relative_path: str, content: str, patterns: list[DetectedPatte
 # Main analysis function
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# BUILD-7: Next.js pattern detection wrapper
+# ---------------------------------------------------------------------------
+
+def detect_nextjs(content: str, relative_path: str = "") -> list[DetectedPattern]:
+    """Wrap nextjs_detector results as DetectedPattern instances."""
+    nextjs_patterns = detect_nextjs_patterns(content, relative_path)
+    result = []
+    for p in nextjs_patterns:
+        result.append(DetectedPattern(
+            pattern_type=f"nextjs_{p.pattern_type}",
+            name=p.name,
+            line=p.line,
+            details={
+                "ios_equivalent": p.ios_equivalent,
+                **p.details,
+            },
+            conversion_difficulty=p.conversion_difficulty,
+        ))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# BUILD-8: State management file classification helper
+# ---------------------------------------------------------------------------
+
+def _is_state_management_file(content: str, patterns: list[DetectedPattern]) -> bool:
+    """Return True if this file is primarily a state management store (Zustand/Redux/Jotai)."""
+    state_patterns = [p for p in patterns if p.pattern_type == "state_management"]
+    if not state_patterns:
+        return False
+    # Must have store creation call at module level
+    has_store_creation = bool(re.search(
+        r"(?:create|createStore|createSlice|configureStore|atom)\s*[<(]",
+        content,
+    ))
+    # Must NOT be primarily a component (no JSX)
+    has_jsx = bool(re.search(r"return\s*\(?\s*<", content))
+    return has_store_creation and not has_jsx
+
+
 ALL_DETECTORS = [
     detect_components,
     detect_hooks,
@@ -445,6 +497,7 @@ ALL_DETECTORS = [
     detect_env_usage,
     detect_storage,
     detect_web_apis,
+    # Note: detect_nextjs requires relative_path — called separately in analyze_file
 ]
 
 
@@ -453,6 +506,9 @@ def analyze_file(relative_path: str, content: str) -> FileAnalysis:
     all_patterns = []
     for detector in ALL_DETECTORS:
         all_patterns.extend(detector(content))
+
+    # BUILD-7: Next.js detection (needs relative_path for API route / middleware detection)
+    all_patterns.extend(detect_nextjs(content, relative_path))
 
     file_type = classify_file(relative_path, content, all_patterns)
     imports = detect_imports(content)

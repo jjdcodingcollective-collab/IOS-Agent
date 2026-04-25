@@ -8,6 +8,7 @@ from .swift_helpers import (
     map_type, to_pascal_case, to_camel_case, swift_header, swift_mark,
     swift_todo, format_swift,
 )
+from ..analyzer.nextjs_detector import get_nextjs_link_href
 
 
 def convert_component_file(source: str, relative_path: str, manifest_entry: dict) -> str:
@@ -238,6 +239,14 @@ def convert_component(component: dict, source: str, manifest_entry: dict) -> str
     else:
         lines.append(f"        {swift_todo('Convert JSX to SwiftUI')}")
         lines.append("        Text(\"TODO\")")
+
+    # --- BUILD-6: Emit useEffect as SwiftUI view modifiers ---
+    view_effects = extract_use_effects_for_view(body)
+    if view_effects:
+        effect_mods = convert_effects_to_view_modifiers(view_effects)
+        for mod_line in effect_mods:
+            lines.append(f"        {mod_line}")
+
     lines.append("    }")
 
     # Convert event handler functions
@@ -423,6 +432,151 @@ def convert_initial_value(initial: str, swift_type: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# BUILD-6: useEffect extraction and SwiftUI modifier generation
+# ---------------------------------------------------------------------------
+
+def extract_use_effects_for_view(body: str) -> list[dict]:
+    """Extract useEffect / useLayoutEffect calls from a component body.
+
+    Returns structured effect dicts for conversion to SwiftUI modifiers.
+    """
+    effects = []
+
+    # Match: useEffect(async? () => { ... }, [deps?])
+    pattern = re.compile(r"useEffect\s*\(\s*(?:async\s*)?\(\)\s*=>\s*\{")
+    for m in pattern.finditer(body):
+        start = m.end()
+        depth = 1
+        i = start
+        while i < len(body) and depth > 0:
+            if body[i] == "{":
+                depth += 1
+            elif body[i] == "}":
+                depth -= 1
+            i += 1
+        effect_body = body[start:i - 1]
+
+        # Detect cleanup: return () => { ... }
+        cleanup_match = re.search(r"return\s*\(\)\s*=>\s*\{([^}]*)\}", effect_body)
+        cleanup_body = cleanup_match.group(1).strip() if cleanup_match else None
+
+        # Dependency array
+        remaining = body[i:i + 100]
+        deps_match = re.search(r",\s*\[([^\]]*)\]", remaining)
+        if deps_match:
+            deps_str = deps_match.group(1).strip()
+            deps = [d.strip() for d in deps_str.split(",") if d.strip()] if deps_str else []
+            dep_type = "mount" if len(deps) == 0 else "dependency"
+        else:
+            deps = []
+            dep_type = "every_render"
+
+        is_async = bool(re.search(r"\bawait\b|fetch\s*\(|axios\.", effect_body))
+
+        effects.append({
+            "type": dep_type,
+            "deps": deps,
+            "body": effect_body,
+            "is_async": is_async,
+            "cleanup": cleanup_body,
+        })
+
+    # useLayoutEffect — synchronous layout-phase hook
+    layout_pattern = re.compile(r"useLayoutEffect\s*\(\s*\(\)\s*=>\s*\{")
+    for m in layout_pattern.finditer(body):
+        start = m.end()
+        depth = 1
+        i = start
+        while i < len(body) and depth > 0:
+            if body[i] == "{":
+                depth += 1
+            elif body[i] == "}":
+                depth -= 1
+            i += 1
+        effect_body = body[start:i - 1]
+
+        remaining = body[i:i + 100]
+        deps_match = re.search(r",\s*\[([^\]]*)\]", remaining)
+        deps = []
+        if deps_match:
+            deps_str = deps_match.group(1).strip()
+            deps = [d.strip() for d in deps_str.split(",") if d.strip()] if deps_str else []
+
+        effects.append({
+            "type": "layout",
+            "deps": deps,
+            "body": effect_body,
+            "is_async": False,
+            "cleanup": None,
+        })
+
+    return effects
+
+
+def convert_effects_to_view_modifiers(effects: list[dict]) -> list[str]:
+    """Convert extracted useEffect data into SwiftUI view modifier lines.
+
+    Returns indentation-free modifier strings (caller adds leading spaces).
+    """
+    modifiers = []
+
+    for effect in effects:
+        etype = effect["type"]
+        deps = effect["deps"]
+        is_async = effect["is_async"]
+        cleanup = effect.get("cleanup")
+
+        if etype == "mount":
+            if is_async:
+                modifiers.append("// 💡 Learn: .task runs once on appear, auto-cancels on disappear (async)")
+                modifiers.append(".task {")
+                modifiers.append(f"    {swift_todo('Port mount effect logic')}")
+                modifiers.append("}")
+            else:
+                modifiers.append("// 💡 Learn: .onAppear replaces useEffect(fn, []) for sync setup")
+                modifiers.append(".onAppear {")
+                modifiers.append(f"    {swift_todo('Port mount effect logic')}")
+                modifiers.append("}")
+            if cleanup:
+                modifiers.append("// 💡 Learn: .onDisappear handles useEffect cleanup (return () => ...)")
+                modifiers.append(".onDisappear {")
+                modifiers.append(f"    {swift_todo('Port cleanup: ' + cleanup[:60])}")
+                modifiers.append("}")
+
+        elif etype == "dependency":
+            for dep in deps:
+                if is_async:
+                    modifiers.append(f"// 💡 Learn: .task(id:) re-runs and cancels prior task when {dep} changes")
+                    modifiers.append(f".task(id: {dep}) {{")
+                    modifiers.append(f"    {swift_todo(f'Port async effect for dependency: {dep}')}")
+                    modifiers.append("}")
+                else:
+                    modifiers.append(f"// 💡 Learn: .onChange(of:) is more explicit than useEffect([{dep}])")
+                    modifiers.append(f".onChange(of: {dep}) {{")
+                    modifiers.append(f"    {swift_todo(f'Port onChange for: {dep}')}")
+                    modifiers.append("}")
+            if cleanup:
+                modifiers.append(".onDisappear {")
+                modifiers.append(f"    {swift_todo('Port effect cleanup')}")
+                modifiers.append("}")
+
+        elif etype == "every_render":
+            modifiers.append("// ⚠️ useEffect with no dep array runs every render — rare in SwiftUI")
+            modifiers.append("// 💡 Learn: SwiftUI re-renders only changed views; verify this logic is still needed")
+            modifiers.append(".onAppear {")
+            modifiers.append(f"    {swift_todo('Port every-render effect — verify intent')}")
+            modifiers.append("}")
+
+        elif etype == "layout":
+            modifiers.append("// ⚠️ useLayoutEffect: synchronous layout phase — .onAppear covers most cases in SwiftUI")
+            modifiers.append(".onAppear {")
+            modifiers.append(f"    {swift_todo('Port useLayoutEffect')}")
+            modifiers.append("}")
+
+    return modifiers
+
+
+# ---------------------------------------------------------------------------
 # JSX -> SwiftUI conversion
 # ---------------------------------------------------------------------------
 
@@ -534,7 +688,7 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
         lines.append(f"{ind}    .font({font})")
         lines.append(f"{ind}    .fontWeight(.bold)")
 
-    elif jsx.startswith("<p") or jsx.startswith("<span"):
+    elif jsx.startswith("<p ") or jsx.startswith("<p>") or jsx.startswith("<p\n") or jsx.startswith("<span"):
         text_content = extract_text_content(jsx)
         text_expr = convert_text_expression(text_content, state_names)
         lines.append(f"{ind}Text({text_expr})")
@@ -670,8 +824,28 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
         lines.append(f'{ind}    .frame(minHeight: 100)')
 
     elif jsx.startswith("<select"):
-        lines.append(f"{ind}{swift_todo('Convert <select> to Picker')}")
-        lines.append(f"{ind}EmptyView()")
+        # BUILD-11: Upgraded from stub to real Picker
+        children = extract_jsx_children(jsx)
+        options = []
+        for child in children:
+            if child.strip().startswith("<option"):
+                val = extract_attr(child, "value") or extract_text_content(child)
+                text = extract_text_content(child)
+                if text:
+                    options.append((val, text))
+        value_binding = extract_attr(jsx, "value")
+        lines.append(f"{ind}// 💡 Learn: Picker replaces <select> in SwiftUI")
+        if value_binding and value_binding in state_names:
+            lines.append(f'{ind}Picker("", selection: ${value_binding}) {{')
+        else:
+            lines.append(f'{ind}Picker("Select", selection: .constant("")) {{')
+        if options:
+            for val, text in options:
+                lines.append(f'{ind}    Text("{text}").tag("{val}")')
+        else:
+            lines.append(f"{ind}    {swift_todo('Add Picker options')}")
+        lines.append(f"{ind}}}")
+        lines.append(f"{ind}    .pickerStyle(.menu)")
 
     elif jsx.startswith("<label"):
         text_content = extract_text_content(jsx)
@@ -680,10 +854,243 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
         lines.append(f"{ind}    .font(.caption)")
         lines.append(f"{ind}    .foregroundStyle(.secondary)")
 
+    # --- BUILD-11: Semantic HTML containers ---
+    elif jsx.startswith("<nav") or jsx.startswith("<header") or jsx.startswith("<footer") or jsx.startswith("<aside") or jsx.startswith("<article"):
+        tag_m = re.match(r"<(\w+)", jsx)
+        tag = tag_m.group(1) if tag_m else "div"
+        comment = {
+            "nav": "Navigation container",
+            "header": "Header area",
+            "footer": "Footer area",
+            "aside": "Sidebar / secondary content",
+            "article": "Article / card content",
+        }.get(tag, "Semantic HTML container")
+        children = extract_jsx_children(jsx)
+        lines.append(f"{ind}// {comment}")
+        lines.append(f"{ind}VStack(alignment: .leading) {{")
+        for child in children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+            if child_result.strip():
+                lines.append(child_result)
+        lines.append(f"{ind}}}")
+
+    # --- BUILD-11: Table elements ---
+    elif jsx.startswith("<table"):
+        children = extract_jsx_children(jsx)
+        lines.append(f"{ind}// 💡 Learn: Use List for simple tables, Grid for complex layouts")
+        lines.append(f"{ind}VStack(spacing: 0) {{")
+        for child in children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+            if child_result.strip():
+                lines.append(child_result)
+        lines.append(f"{ind}}}")
+
+    elif jsx.startswith("<thead") or jsx.startswith("<tbody") or jsx.startswith("<tfoot"):
+        children = extract_jsx_children(jsx)
+        for child in children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level)
+            if child_result.strip():
+                lines.append(child_result)
+
+    elif jsx.startswith("<tr"):
+        children = extract_jsx_children(jsx)
+        lines.append(f"{ind}HStack {{")
+        for child in children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+            if child_result.strip():
+                lines.append(child_result)
+        lines.append(f"{ind}}}")
+        lines.append(f"{ind}    .padding(.vertical, 4)")
+
+    elif jsx.startswith("<td") or jsx.startswith("<th"):
+        is_header = jsx.startswith("<th")
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        lines.append(f"{ind}Text({text_expr})")
+        if is_header:
+            lines.append(f"{ind}    .fontWeight(.semibold)")
+        lines.append(f"{ind}    .frame(maxWidth: .infinity, alignment: .leading)")
+        lines.append(f"{ind}    .padding(.horizontal, 8)")
+
+    # --- BUILD-11: Media elements ---
+    elif jsx.startswith("<video"):
+        src = extract_attr(jsx, "src")
+        lines.append(f"{ind}// 💡 Learn: VideoPlayer from AVKit replaces <video>")
+        lines.append(f"{ind}{swift_todo('Add: import AVKit at top of file')}")
+        if src:
+            src_expr = convert_text_expression(src, state_names)
+            lines.append(f"{ind}VideoPlayer(player: AVPlayer(url: URL(string: {src_expr})!))")
+        else:
+            lines.append(f"{ind}VideoPlayer(player: AVPlayer())")
+        lines.append(f"{ind}    .frame(height: 250)")
+
+    elif jsx.startswith("<audio"):
+        src = extract_attr(jsx, "src")
+        lines.append(f"{ind}// 💡 Learn: Use AVPlayer for audio streaming or AVAudioPlayer for local files")
+        lines.append(f"{ind}{swift_todo('Implement AVPlayer: import AVKit, create AVPlayer(url:)')}")
+        lines.append(f"{ind}EmptyView()  // No visual — wire up AVPlayer in a ViewModel")
+
+    # --- BUILD-11: Canvas and SVG ---
+    elif jsx.startswith("<canvas"):
+        lines.append(f"{ind}// 💡 Learn: SwiftUI Canvas provides direct drawing — same model as HTML canvas")
+        lines.append(f"{ind}Canvas {{ context, size in")
+        lines.append(f"{ind}    {swift_todo('Port canvas drawing operations')}")
+        lines.append(f"{ind}}}")
+
+    elif jsx.startswith("<svg"):
+        children = extract_jsx_children(jsx)
+        lines.append(f"{ind}// 💡 Learn: Use SwiftUI Path and Shape protocols for vector graphics")
+        lines.append(f"{ind}{swift_todo('Convert SVG to SwiftUI Path/Shape')}")
+        if children:
+            svg_tags = set()
+            for child in children:
+                m = re.match(r"<(\w+)", child.strip())
+                if m:
+                    svg_tags.add(m.group(1))
+            if svg_tags:
+                lines.append(f"{ind}// SVG elements to convert: {', '.join(sorted(svg_tags))} → Path/Circle/Rectangle")
+        lines.append(f"{ind}EmptyView()")
+
+    # --- BUILD-11: Progress indicators ---
+    elif jsx.startswith("<progress"):
+        value = extract_attr(jsx, "value")
+        max_val = extract_attr(jsx, "max") or "100"
+        if value:
+            lines.append(f"{ind}ProgressView(value: Double({value}), total: Double({max_val}))")
+        else:
+            lines.append(f"{ind}ProgressView()  // Indeterminate spinner")
+
+    elif jsx.startswith("<meter"):
+        value = extract_attr(jsx, "value") or "0"
+        min_val = extract_attr(jsx, "min") or "0"
+        max_val = extract_attr(jsx, "max") or "1"
+        lines.append(f"{ind}// 💡 Learn: Gauge is the SwiftUI equivalent of <meter>")
+        lines.append(f"{ind}Gauge(value: Double({value}), in: Double({min_val})...Double({max_val})) {{")
+        lines.append(f"{ind}    Text(\"\")")
+        lines.append(f"{ind}}}")
+
+    # --- BUILD-11: Dialog and collapsible ---
+    elif jsx.startswith("<dialog"):
+        children = extract_jsx_children(jsx)
+        lines.append(f"{ind}// 💡 Learn: .sheet() replaces <dialog> in SwiftUI")
+        lines.append(f"{ind}{swift_todo('Add @State var isSheetPresented = false and trigger it appropriately')}")
+        lines.append(f"{ind}Color.clear")
+        lines.append(f"{ind}    .sheet(isPresented: .constant(true)) {{")
+        lines.append(f"{ind}        VStack {{")
+        for child in children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level + 3)
+            if child_result.strip():
+                lines.append(child_result)
+        lines.append(f"{ind}        }}")
+        lines.append(f"{ind}    }}")
+
+    elif jsx.startswith("<details"):
+        children = extract_jsx_children(jsx)
+        summary_text = ""
+        other_children = []
+        for child in children:
+            if child.strip().startswith("<summary"):
+                summary_text = extract_text_content(child)
+            else:
+                other_children.append(child)
+        label = f'"{summary_text}"' if summary_text else '"Details"'
+        lines.append(f"{ind}// 💡 Learn: DisclosureGroup is the SwiftUI equivalent of <details>/<summary>")
+        lines.append(f"{ind}DisclosureGroup({label}) {{")
+        for child in other_children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+            if child_result.strip():
+                lines.append(child_result)
+        lines.append(f"{ind}}}")
+
+    elif jsx.startswith("<summary"):
+        # summary is consumed by <details> above; standalone → styled text
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        lines.append(f"{ind}Text({text_expr})")
+        lines.append(f"{ind}    .fontWeight(.semibold)")
+
+    # --- BUILD-11: Additional text/formatting elements ---
+    elif jsx.startswith("<h4") or jsx.startswith("<h5") or jsx.startswith("<h6"):
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        lines.append(f"{ind}Text({text_expr})")
+        lines.append(f"{ind}    .font(.subheadline)")
+        lines.append(f"{ind}    .fontWeight(.semibold)")
+
+    elif jsx.startswith("<strong") or jsx.startswith("<b>") or jsx.startswith("<b "):
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        lines.append(f"{ind}Text({text_expr})")
+        lines.append(f"{ind}    .fontWeight(.bold)")
+
+    elif jsx.startswith("<em") or jsx.startswith("<i>") or jsx.startswith("<i "):
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        lines.append(f"{ind}Text({text_expr})")
+        lines.append(f"{ind}    .italic()")
+
+    elif jsx.startswith("<code") or jsx.startswith("<pre"):
+        text_content = extract_text_content(jsx)
+        text_expr = convert_text_expression(text_content, state_names)
+        lines.append(f"{ind}Text({text_expr})")
+        lines.append(f"{ind}    .font(.system(.body, design: .monospaced))")
+
+    elif jsx.startswith("<hr"):
+        lines.append(f"{ind}Divider()")
+
+    elif jsx.startswith("<br"):
+        lines.append(f"{ind}Spacer().frame(height: 8)")
+
     else:
         # Unknown element — check if it's a React component (PascalCase) or HTML element
         tag = re.match(r"<([\w.]+)", jsx)
         tag_name = tag.group(1) if tag else "element"
+
+        # --- BUILD-7: Next.js component remappings ---
+        # <Link href="...">label</Link> from next/link → NavigationLink or Link
+        if tag_name == "Link" and (extract_attr(jsx, "href") is not None):
+            href = get_nextjs_link_href(jsx) or ""
+            text_content = extract_text_content(jsx)
+            text_expr = convert_text_expression(text_content, state_names)
+            children = extract_jsx_children(jsx)
+            lines.append(f"{ind}// 💡 Learn: next/link <Link> → NavigationLink for in-app navigation, Link for external URLs")
+            if href.startswith("/") or not href.startswith("http"):
+                # Internal route → NavigationLink
+                if children:
+                    lines.append(f"{ind}NavigationLink {{")
+                    lines.append(f"{ind}    {swift_todo(f'Destination view for route: {href}')}")
+                    lines.append(f"{ind}    Text({text_expr})")
+                    lines.append(f"{ind}}} label: {{")
+                    for child in children:
+                        child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+                        if child_result.strip():
+                            lines.append(child_result)
+                    lines.append(f"{ind}}}")
+                else:
+                    lines.append(f"{ind}NavigationLink({text_expr}) {{")
+                    lines.append(f"{ind}    {swift_todo(f'Destination view for route: {href}')}")
+                    lines.append(f"{ind}}}")
+            else:
+                # External URL → SwiftUI Link
+                lines.append(f'{ind}Link({text_expr}, destination: URL(string: "{href}")!)')
+            return "\n".join(lines)
+
+        # <Head>...</Head> from next/head → .navigationTitle() annotation
+        if tag_name == "Head":
+            children = extract_jsx_children(jsx)
+            title_text = ""
+            for child in children:
+                if "<title" in child:
+                    title_text = extract_text_content(child)
+            lines.append(f"{ind}// 💡 Learn: next/head <Head> → .navigationTitle() on the enclosing NavigationStack")
+            if title_text:
+                lines.append(f"{ind}// Add to your parent NavigationStack view:")
+                lines.append(f'{ind}// .navigationTitle("{title_text}")')
+            else:
+                lines.append(f"{ind}// Add .navigationTitle(...) to the enclosing NavigationStack view")
+            lines.append(f"{ind}{swift_todo('Apply .navigationTitle() to the enclosing NavigationStack view')}")
+            lines.append(f"{ind}EmptyView()")
+            return "\n".join(lines)
 
         # --- Fix #3: Cross-file component references ---
         if tag_name and tag_name[0].isupper() and not tag_name.startswith("HTML"):

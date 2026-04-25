@@ -194,6 +194,30 @@ def convert_hook_to_viewmodel(hook: dict, full_source: str) -> str:
         lines.append("    }")
         lines.append("")
 
+    # --- BUILD-6: Dependency effects → reactive methods ---
+    dep_effects = [e for e in effects if e["type"] == "dependency"]
+    for effect in dep_effects:
+        deps = effect["deps"]
+        dep_label = "_".join(deps) if deps else "value"
+        func_name = to_camel_case(f"on_{dep_label}_changed")
+        is_async = bool(re.search(r"\bawait\b|fetch\s*\(|axios\.", effect["body"]))
+        async_kw = "async " if is_async else ""
+        lines.append(f"    // 💡 Learn: Call this from .task(id: {deps[0] if deps else 'value'}) or .onChange(of:) on the View")
+        lines.append(f"    func {func_name}() {async_kw}{{")
+        for call in extract_function_calls(effect["body"]):
+            if call in [f["name"] for f in inner_functions]:
+                await_kw = "await " if is_async else ""
+                lines.append(f"        {await_kw}{to_camel_case(call)}()")
+            else:
+                lines.append(f"        {swift_todo(f'Port dependency effect: {call}()')}")
+        if not extract_function_calls(effect["body"]):
+            lines.append(f"        {swift_todo(f'Port effect for: {deps}')}")
+        if effect.get("cleanup"):
+            lines.append(f"        // Cleanup: {effect['cleanup'][:60]}")
+            lines.append(f"        {swift_todo('Port cleanup logic (runs on dependency change or view disappear)')}")
+        lines.append("    }")
+        lines.append("")
+
     # Convert inner functions to methods — use LoadState-aware version
     for func in inner_functions:
         lines.append(convert_inner_function(func, state_vars, use_load_state=has_async_data))

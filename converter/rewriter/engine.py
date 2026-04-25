@@ -22,6 +22,7 @@ from .service_converter import (
 )
 from .hook_converter import convert_hook_file
 from .component_converter import convert_component_file
+from .state_converter import convert_state_file
 
 
 @dataclass
@@ -51,6 +52,7 @@ FILE_TYPE_TO_DIR = {
     "hook": "ViewModels",
     "component": "Views",
     "route": "Views",
+    "state": "ViewModels",    # BUILD-8: state management stores → ViewModels
     "config": "Configuration",
     "utility": "Extensions",
     "unknown": "Misc",
@@ -183,6 +185,19 @@ def convert_file(
         # Derive ViewModel name
         name = filename.replace("use", "").replace("Use", "")
         name = _pascal(name) + "ViewModel"
+        swift_filename = f"{name}.swift"
+
+    elif file_type == "state":
+        # BUILD-8: State management stores (Zustand / Redux / Jotai / Context)
+        swift_code = convert_state_file(source, relative_path, manifest_entry)
+        # Derive output filename based on library
+        name = _pascal(filename)
+        if "Slice" in filename or "Reducer" in filename:
+            name = name.replace("Slice", "").replace("Reducer", "") + "ViewModel"
+        elif "Store" in filename or "store" in filename.lower():
+            name = name.replace("Store", "").replace("store", "") + "Store"
+        else:
+            name = name + "ViewModel"
         swift_filename = f"{name}.swift"
 
     elif file_type in ("component", "route"):
