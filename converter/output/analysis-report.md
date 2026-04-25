@@ -1,6 +1,6 @@
 # Code Analysis Report
 
-> Generated: 2026-04-25T05:29:16.350230+00:00
+> Generated: 2026-04-25T06:01:35.517402+00:00
 > Source: `/storage/users/user_3AeOuDUrxI7LrpU6J21FpMneayM/projects/ios-agent/converter/test-fixtures/sample-app`
 
 ## Overview

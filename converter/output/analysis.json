@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-04-25T05:29:16.350230+00:00",
+    "generated_at": "2026-04-25T06:01:35.517402+00:00",
     "source_dir": "/storage/users/user_3AeOuDUrxI7LrpU6J21FpMneayM/projects/ios-agent/converter/test-fixtures/sample-app",
     "tool_version": "0.1.0"
   },
@@ -273,8 +273,8 @@
       ],
       "exports": [
         "formatDate",
-        "isRecent",
-        "formatRelative"
+        "formatRelative",
+        "isRecent"
       ],
       "patterns": []
     },
@@ -286,9 +286,9 @@
         "axios"
       ],
       "exports": [
+        "ArticleSortBy",
         "CreateArticleInput",
         "articleService",
-        "ArticleSortBy",
         "Article"
       ],
       "patterns": [
