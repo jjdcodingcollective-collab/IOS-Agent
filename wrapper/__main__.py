@@ -19,6 +19,7 @@ import shutil
 import sys
 from pathlib import Path
 
+from .explainer import format_branch_explainer
 from .git_ops import (
     GitError,
     NEEDS_REVIEW_PREFIX,
@@ -27,7 +28,13 @@ from .git_ops import (
     push_branch,
 )
 from .orchestrator import run_conversion
-from .repo_metadata import banner_for_url
+from .post_flight import format_post_flight
+from .repo_metadata import (
+    RepoMetadata,
+    fetch_repo_metadata,
+    format_metadata_banner,
+    parse_github_url,
+)
 from .triage import format_triage
 
 
@@ -103,16 +110,21 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
         Path.cwd() / "workspace" / f"{clone_name}-ios-output"
     )
 
+    # Phase 4 pre-flight: fetch metadata once and reuse for both the banner
+    # and the post-flight PR command (which needs the default branch).
+    # Soft-fails on no network / no auth / non-GitHub URL.
+    meta: RepoMetadata | None = None
+    parsed = parse_github_url(repo_url)
+    if parsed:
+        try:
+            meta = fetch_repo_metadata(parsed[0], parsed[1])
+        except Exception:
+            meta = None
+
     print(f"Repo:       {repo_url}")
-    # Phase 4 pre-flight: try to surface what GitHub already knows about
-    # the repo. Soft-fails on no network / no auth / non-GitHub URL.
-    try:
-        banner = banner_for_url(repo_url)
-    except Exception:
-        banner = None
-    if banner:
-        print(f"About:      {banner}")
-    elif repo_url and "github.com" in repo_url:
+    if meta and not args.brief:
+        print(f"About:      {format_metadata_banner(meta)}")
+    elif parsed and not args.brief:
         print("About:      (github metadata unavailable)")
     print(f"Clone to:   {clone_dest}")
     if args.source_subdir:
@@ -213,6 +225,12 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
     print(f"  git log --oneline {commit.branch}")
     print(f"  git diff main..{commit.branch}")
 
+    # Phase 4: educational mode — explain what's on the branch and how to
+    # review it. Suppressed by --brief for power users.
+    if not args.brief:
+        print()
+        print(format_branch_explainer(commit))
+
     # Phase 3: push. Three states for args.push:
     #   True  → push without asking (--push, also implied by --yes)
     #   False → never push (--no-push)
@@ -247,6 +265,14 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
         print(f"Pushed: {push.remote}/{push.branch}")
         if push.remote_url:
             print(f"Remote: {push.remote_url}")
+
+        # Phase 4 post-flight: tell the user exactly how to open the PR.
+        # The summary lives at <output_dir>/.ios-conversion/generation-summary.md
+        # but we reference it by its in-repo path so the gh command works
+        # from inside the clone, where the user will run it.
+        summary_in_repo = ".ios-conversion/generation-summary.md"
+        print()
+        print(format_post_flight(commit, push, meta=meta, summary_path=summary_in_repo))
         return 0
 
     # Push failed — read-only fallback per the plan. Don't fail the run;
@@ -291,6 +317,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--yes", "-y",
         action="store_true",
         help="Skip confirmation prompts.",
+    )
+    convert.add_argument(
+        "--brief",
+        action="store_true",
+        help="Suppress the metadata banner and educational mode "
+             "(power-user output; the actionable lines remain).",
     )
     convert.set_defaults(func=cmd_convert)
 
@@ -345,6 +377,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--yes", "-y",
         action="store_true",
         help="Skip confirmation prompts. Implies --push unless --no-push is set.",
+    )
+    gh.add_argument(
+        "--brief",
+        action="store_true",
+        help="Suppress the metadata banner and educational mode "
+             "(power-user output; the PR command still appears).",
     )
     push_group = gh.add_mutually_exclusive_group()
     push_group.add_argument(
