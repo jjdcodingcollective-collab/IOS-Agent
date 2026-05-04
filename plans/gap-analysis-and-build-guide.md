@@ -1322,7 +1322,7 @@ Update `extract_jsx_children()` to handle fragment closing tags (`</>`, `</React
 
 ### Tier 2/3 backlog — partial delivery 2026-05-04
 
-- **BUILD-23 (Tier 2):** UIKit chapter mapped from imperative-UI traditions (Android Views, WPF/WinForms, ObjC UIKit history). Many production iOS jobs require UIKit competence; SwiftUI-only is unrealistic. — ⏳ pending
+- **BUILD-23 (Tier 2):** UIKit chapter mapped from imperative-UI traditions (Android Views, WPF/WinForms, ObjC UIKit history). Many production iOS jobs require UIKit competence; SwiftUI-only is unrealistic. — ✅ shipped 2026-05-04 as `docs/04-ui-development/uikit-guide.md`. Covers view controllers + lifecycle, Auto Layout mental model, Storyboards/XIBs/programmatic tradeoffs, modern `UICollectionView` with diffable data sources, navigation patterns, gestures + responder chain, and bidirectional SwiftUI bridging (`UIHostingController` / `UIViewRepresentable`). Cross-linked to ARC, concurrency, and ObjC-interop chapters.
 - **BUILD-24 (Tier 2):** C# → Swift chapter (Xamarin/MAUI sunset, Unity gameplay devs). — ⏳ pending
 - **BUILD-25 (Tier 2):** Dart/Flutter → Swift chapter (cross-platform replatforming). — ⏳ pending
 - **BUILD-26 (Tier 2):** Deepen JS/TS chapter — Combine, Codable customization, KeyPath, property-wrapper authoring, result builders, IUO. — ✅ shipped 2026-05-04 as three companion chapters: `combine-and-async-streams.md`, `codable-deep.md`, `swift-toolkit-for-web-devs.md` (KeyPaths + property-wrapper authoring + result builders + IUO consolidated). The intro chapter `swift-for-web-devs.md` now has a "Going Deeper" pointer block linking all five Phase E + BUILD-26 companion chapters.
@@ -1397,7 +1397,7 @@ once the surface area grew.
 8. ✅ **BUILD-26** — Deepened JS/TS material as three companion chapters: `combine-and-async-streams.md`, `codable-deep.md`, `swift-toolkit-for-web-devs.md`. The intro `swift-for-web-devs.md` now has a "Going Deeper" pointer block to all five Phase E chapters plus the three new BUILD-26 ones.
 9. ✅ **BUILD-29** — App Store operations chapter (`docs/09-deployment/app-store-operations.md`): privacy manifest, ATT, IDFA, BGTaskScheduler, push notifications, App Groups, entitlements, pre-submission checklist. Cross-linked from `security-guide.md` and `deployment-guide.md`.
 
-**Tier 2/3/4 — Remaining backlog:** BUILD-23 (UIKit), BUILD-24 (C#), BUILD-25 (Dart/Flutter), BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). Specs to be drafted before pickup.
+**Tier 2/3/4 — Remaining backlog:** BUILD-24 (C#), BUILD-25 (Dart/Flutter), BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). Sequencing and acceptance criteria locked in `plans/phase-e-tier-2-3-remaining.md`.
 
 **Cross-cutting recommendation:** before writing more source-language chapters, lock in the per-language template (variables/types, null model, error model, value-vs-reference, concurrency model, generics & polymorphism, memory model, module/visibility, testing idioms, "5 most surprising things"). Without this, new chapters will drift in depth like the existing ones do.
 

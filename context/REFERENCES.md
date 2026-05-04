@@ -56,6 +56,9 @@ Phase E Tier 2/3 partial (2026-05-04, BUILD-26 + BUILD-29):
 - `docs/02-swift-fundamentals/swift-toolkit-for-web-devs.md` — KeyPaths, property-wrapper authoring, result builders / `@ViewBuilder`, IUOs.
 - `docs/09-deployment/app-store-operations.md` — privacy manifest, ATT, IDFA, BGTaskScheduler, push, App Groups, entitlements, pre-submission checklist.
 
+Phase E Tier 2 — BUILD-23 (2026-05-04):
+- `docs/04-ui-development/uikit-guide.md` — view controllers + lifecycle, Auto Layout mental model, Storyboards/XIBs/programmatic tradeoffs, modern `UICollectionView` diffable data sources, navigation patterns, responder chain + gestures, bidirectional SwiftUI bridging (`UIHostingController` / `UIViewRepresentable`).
+
 ### Wrapper Command Surface
 
 ```

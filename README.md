@@ -66,6 +66,7 @@ Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md
 
 ### UI Development
 - [UI Development with SwiftUI](docs/04-ui-development/swiftui-guide.md) — Building interfaces, mapped from web components and CSS
+- [UIKit for Web & Imperative-UI Developers](docs/04-ui-development/uikit-guide.md) — View controllers, Auto Layout, diffable data sources, bridging to SwiftUI
 
 ### Networking & APIs
 - [Networking & API Integration](docs/05-networking/api-integration.md) — URLSession, async/await, REST/GraphQL from Swift
@@ -128,13 +129,15 @@ The `docs/` guide now covers **JavaScript / TypeScript, Kotlin, Java, and Python
 
 **BUILD-26 + BUILD-29 also shipped 2026-05-04** out of the Tier 2/3 backlog (highest reader-leverage among the non-language items): three new companion chapters under `02-swift-fundamentals/` deepening the JS/TS material (Combine, Codable customization, and the KeyPaths/property-wrappers/result-builders/IUO toolkit), and a dedicated `09-deployment/app-store-operations.md` chapter consolidating privacy manifest, ATT, BGTaskScheduler, push, App Groups, and entitlements as a pre-submission checklist.
 
-Remaining backlog under Phase E: BUILD-23 (UIKit), BUILD-24 (C# / Xamarin/MAUI sunset), BUILD-25 (Dart/Flutter), BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). See `plans/gap-analysis-and-build-guide.md` for full specs.
+Remaining backlog under Phase E: BUILD-24 (C# / Xamarin/MAUI sunset), BUILD-25 (Dart/Flutter), BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). See `plans/gap-analysis-and-build-guide.md` for full specs and `plans/phase-e-tier-2-3-remaining.md` for the sequencing plan.
 
 The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expanding source-language coverage in the docs ahead of the converter is intentional — the docs are the cheaper experiment.
 
 ---
 
 ## Last Updated
+
+**2026-05-04** *(BUILD-23 shipped — UIKit chapter)* — New chapter `docs/04-ui-development/uikit-guide.md` covering view controllers + lifecycle, Auto Layout (the constraint mental model + `translatesAutoresizingMaskIntoConstraints` trap), Storyboards/XIBs/programmatic tradeoffs, modern `UICollectionView` with diffable data sources, navigation patterns, gestures + responder chain, and bidirectional bridging to SwiftUI via `UIHostingController` / `UIViewRepresentable`. README TOC updated; BUILD-23 marked ✅ in the gap-analysis build guide. No converter or wrapper code changes.
 
 **2026-05-04** *(Wrapper Phase 3 shipped — opt-in push)* — `convert-from-github` gains `--push` / `--no-push` flags (default: prompt after the local commit lands). `wrapper/git_ops.py` adds `push_branch()` + `PushInfo`: plain `git push --set-upstream`, never `--force`, hard refusal on the protected-branch list, and a read-only fallback when credentials are missing or the push otherwise fails. `--yes` implies `--push` unless overridden. Phase 3 marked ✅ in `plans/github-round-trip.md`; the previously-open re-run-on-stale-base question is resolved as "leave alone."
 
