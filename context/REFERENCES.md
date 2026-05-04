@@ -1,6 +1,6 @@
 # References
 
-Last curated: 2026-05-04
+Last curated: 2026-05-04 (Phase E complete — BUILD-27/28/30 added)
 
 ## Sources
 
@@ -60,6 +60,11 @@ Phase E Tier 2 — BUILD-23/24/25 (2026-05-04):
 - `docs/04-ui-development/uikit-guide.md` — view controllers + lifecycle, Auto Layout mental model, Storyboards/XIBs/programmatic tradeoffs, modern `UICollectionView` diffable data sources, navigation patterns, responder chain + gestures, bidirectional SwiftUI bridging (`UIHostingController` / `UIViewRepresentable`).
 - `docs/02-swift-fundamentals/from-csharp.md` — type system, LINQ → sequence ops, async/await with cancellation contrast, properties/pattern-matching/generics, GC → ARC, "where it gets weird" (no `internal` across modules, no `protected`, trailing closures), MVVM port with `@Observable`/`@MainActor`, Xamarin/MAUI sunset migration plan.
 - `docs/02-swift-fundamentals/from-dart-flutter.md` — type system (with sealed-class → enum collapse), widget → view tree, `StatefulWidget` → `@State`, layout idiom mapping, state-management mapping (Provider/Riverpod/BLoC → `@State`/`@Observable`/AsyncStream), `Future`/`Stream` → `async`/`AsyncSequence`, isolates → actors, `ChangeNotifier` real-world port, rebuild cost-model contrast.
+
+Phase E Tier 3/4 — BUILD-27/28/30 (2026-05-04, Phase E complete):
+- `docs/02-swift-fundamentals/cpp-interop.md` — Swift 5.9+ first-class C++ interop, `.interoperabilityMode(.Cxx)`, module map setup, `std::string`/`std::vector<T>` bridging, what works vs what's still rough (templates, exceptions are UB), Objective-C++ `.mm` shims with try/catch translation to NSError, vendored static libs vs SPM binary frameworks, ABI-breakage and `std::string_view` lifetime hazards, real-world C++ codec wrap.
+- `docs/02-swift-fundamentals/rust-ffi.md` — full FFI surface (`extern "C"` + `#[no_mangle]` + `catch_unwind`), `cbindgen` header generation, Swift class wrapping with `deinit`, memory ownership rules, string bridging (`withCString` / `String(cString:)`), Result types (out-parameter + tagged struct), async patterns (Task.detached, `withCheckedContinuation` + `Unmanaged.passRetained` callbacks, polling), `uniffi-rs` and `cargo-swift` higher-level options, building `xcframework` with `cargo` + `xcodebuild -create-xcframework`, real-world parser package.
+- `docs/02-swift-fundamentals/from-server-langs.md` — combined Go/Ruby/PHP chapter. Go: goroutines → `Task`, channels → `AsyncStream`, structural interfaces vs nominal protocols with PAT caveats, error returns → `throws`. Ruby: no `method_missing`, no monkey-patching across modules, mixins → protocol extensions, `&:method` → key-paths. PHP: no type-juggling, no superglobals, `array` splits into `Array<T>` + `Dictionary<K,V>`.
 
 ### Wrapper Command Surface
 

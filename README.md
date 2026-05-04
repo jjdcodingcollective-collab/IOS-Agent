@@ -54,10 +54,13 @@ Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md
 - [Swift for Python Developers](docs/02-swift-fundamentals/from-python.md) — Static typing, no truthiness, no GIL, optionals as types
 - [Swift for C# Developers](docs/02-swift-fundamentals/from-csharp.md) — LINQ → sequence ops, GC → ARC, Xamarin/MAUI sunset migration
 - [Swift for Dart / Flutter Developers](docs/02-swift-fundamentals/from-dart-flutter.md) — Widgets → Views, StatefulWidget → @State, isolates → actors
+- [Swift for Go / Ruby / PHP Developers](docs/02-swift-fundamentals/from-server-langs.md) — Goroutines → Tasks, channels → AsyncStream, no `method_missing`, no superglobals
 - [Strict Concurrency & Sendable](docs/02-swift-fundamentals/concurrency-and-sendable.md) — Actors, `@MainActor`, `Sendable`, Swift 6 strict mode
 - [ARC, Captures & Lifetimes](docs/02-swift-fundamentals/arc-and-lifetimes.md) — Reference counting, retain cycles, `[weak self]`, `Task` retention
 - [Generics, Opaque Types & Existentials](docs/02-swift-fundamentals/generics-and-protocols-deep.md) — `some` vs `any`, PATs, type erasure
 - [Objective-C Interop](docs/02-swift-fundamentals/swift-objc-interop.md) — `@objc`, bridging headers, `#selector`, KVO, framework header reading
+- [C++ / Objective-C++ Interop](docs/02-swift-fundamentals/cpp-interop.md) — Swift 5.9+ first-class C++ interop, `.mm` shims, `std::string`/`std::vector` bridging
+- [Rust → Swift FFI](docs/02-swift-fundamentals/rust-ffi.md) — `extern "C"`, `cbindgen`, ownership across the boundary, `xcframework` packaging, `uniffi`/`cargo-swift`
 - [Combine & AsyncStream](docs/02-swift-fundamentals/combine-and-async-streams.md) — Combine for RxJS readers, AsyncSequence, when to pick which
 - [Codable Customization](docs/02-swift-fundamentals/codable-deep.md) — CodingKeys, dates, polymorphism, lossy arrays, property-wrapper decoders
 - [The Swift Toolkit](docs/02-swift-fundamentals/swift-toolkit-for-web-devs.md) — KeyPaths, property-wrapper authoring, result builders, IUOs
@@ -125,19 +128,21 @@ This is a living reference. To contribute:
 
 ## Scope (Current)
 
-The `docs/` guide now covers **JavaScript / TypeScript, Kotlin, Java, Python, C#, and Dart/Flutter → Swift** developers, plus operational depth on Objective-C interop, strict concurrency, ARC, generics, persistence, and UIKit (for non-greenfield iOS codebases).
+The `docs/` guide now covers **JavaScript / TypeScript, Kotlin, Java, Python, C#, Dart/Flutter, and Go / Ruby / PHP → Swift** developers, plus operational depth on Objective-C interop, **C++ and Rust interop**, strict concurrency, ARC, generics, persistence, and UIKit (for non-greenfield iOS codebases).
 
 **Phase E Tier 0 + Tier 1 shipped 2026-05-04** (BUILD-16 through BUILD-22): seven new chapters, three correctness fixes, and a per-language template established for future source-language additions.
 
 **BUILD-26 + BUILD-29 also shipped 2026-05-04** out of the Tier 2/3 backlog (highest reader-leverage among the non-language items): three new companion chapters under `02-swift-fundamentals/` deepening the JS/TS material (Combine, Codable customization, and the KeyPaths/property-wrappers/result-builders/IUO toolkit), and a dedicated `09-deployment/app-store-operations.md` chapter consolidating privacy manifest, ATT, BGTaskScheduler, push, App Groups, and entitlements as a pre-submission checklist.
 
-Remaining backlog under Phase E: BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). See `plans/gap-analysis-and-build-guide.md` for full specs and `plans/phase-e-tier-2-3-remaining.md` for the sequencing plan.
+**Phase E is now complete.** All Tier 2/3/4 chapters (BUILD-23/24/25/27/28/30) shipped 2026-05-04. The remaining roadmap work is wrapper Phase 4 (conversational polish) and Phase 5 (`--open-pr` via `gh pr create`). See `plans/gap-analysis-and-build-guide.md` for the full record and `plans/phase-e-tier-2-3-remaining.md` for the sequencing log.
 
 The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expanding source-language coverage in the docs ahead of the converter is intentional — the docs are the cheaper experiment.
 
 ---
 
 ## Last Updated
+
+**2026-05-04** *(BUILD-27 + BUILD-28 + BUILD-30 shipped — C++, Rust, server-langs; Phase E complete)* — Three new chapters under `02-swift-fundamentals/`: `cpp-interop.md` (Swift 5.9+ first-class C++ interop, `.interoperabilityMode(.Cxx)`, module map setup, `std::string`/`std::vector` bridging, Objective-C++ `.mm` shims for exception translation, vendored static libs vs SPM binary frameworks, ABI-breakage and `std::string_view` lifetime hazards), `rust-ffi.md` (`extern "C"` + `#[no_mangle]` + `catch_unwind`, `cbindgen` header generation, `Box::into_raw`/`Box::from_raw` ownership patterns, string-bridging via `withCString` and `String(cString:)`, async strategies, `uniffi-rs` and `cargo-swift` higher-level options, building an `xcframework` with `cargo` + `xcodebuild -create-xcframework`), and `from-server-langs.md` (combined Go/Ruby/PHP chapter — goroutines/channels → `Task`/`AsyncStream`, Go interfaces vs Swift protocols with PAT caveats, no `method_missing` and no monkey-patching for Ruby refugees, no type-juggling and no superglobals for PHP refugees). README TOC, ACTIVE, REFERENCES, and gap-analysis build guide updated; **Phase E backlog is now empty**.
 
 **2026-05-04** *(BUILD-24 + BUILD-25 shipped — C# and Dart/Flutter chapters)* — Two new source-language chapters: `docs/02-swift-fundamentals/from-csharp.md` (LINQ → sequence ops, GC → ARC, MVVM with `@Observable`, Xamarin/MAUI sunset migration plan) and `docs/02-swift-fundamentals/from-dart-flutter.md` (widgets → views, `StatefulWidget` → `@State`, `ChangeNotifier` → `@Observable`, isolates → actors, layout & rebuild cost-model contrast). Both follow the established per-language template and cross-link to the deep chapters. README TOC, ACTIVE, REFERENCES, and gap-analysis build guide updated; remaining backlog narrowed to BUILD-27/28/30.
 

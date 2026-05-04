@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-04 (revised — BUILD-23/24/25 shipped: UIKit, C#, Dart/Flutter)
+Last curated: 2026-05-04 (revised — BUILD-27/28/30 shipped: C++, Rust, Go/Ruby/PHP — Phase E complete)
 
 ## Current State
 
@@ -53,22 +53,37 @@ transpositions.
   pre-submission checklist). Cross-linked from `security-guide.md` and
   `deployment-guide.md`.
 
+**Tier 2/3/4 niche tail — BUILD-27 + BUILD-28 + BUILD-30 shipped 2026-05-04** (three files):
+
+- ✅ BUILD-27 — `docs/02-swift-fundamentals/cpp-interop.md` (Swift 5.9+
+  first-class C++ interop, `.interoperabilityMode(.Cxx)`, module map setup,
+  `std::string`/`std::vector` bridging, Objective-C++ `.mm` shims for
+  exception translation, vendored static libs vs SPM binary frameworks,
+  ABI-breakage and `std::string_view` lifetime hazards).
+- ✅ BUILD-28 — `docs/02-swift-fundamentals/rust-ffi.md` (`extern "C"` +
+  `#[no_mangle]` + `catch_unwind`, `cbindgen` header generation,
+  `Box::into_raw`/`Box::from_raw` ownership patterns, string-bridging via
+  `withCString` and `String(cString:)`, async strategies, `uniffi-rs` and
+  `cargo-swift` higher-level options, `xcframework` packaging).
+- ✅ BUILD-30 — `docs/02-swift-fundamentals/from-server-langs.md` (combined
+  Go/Ruby/PHP chapter — goroutines/channels → `Task`/`AsyncStream`, Go
+  interfaces vs Swift protocols with PAT caveats, no `method_missing` and
+  no monkey-patching for Ruby refugees, no type-juggling and no superglobals
+  for PHP refugees).
+
+**Phase E is now complete.** All Tier 2/3/4 chapters
+(BUILD-23/24/25/27/28/30) shipped 2026-05-04.
+
 Source review: `plans/reviews/2026-05-04-language-transposition.md`.
 
 ## What's Next
-
-Two tracks remain:
 
 **Wrapper Phase 4/5.** Phase 4 is the conversational polish layer
 (pre-flight repo metadata via the GitHub API, post-flight PR-ready
 next steps, educational mode for first-time users). Phase 5 wires
 `--open-pr` via `gh pr create`, off by default. Both build on the
-Phase 3 push plumbing already in place.
-
-**Phase E remaining Tier 2/3/4 backlog:** BUILD-27 (C++ interop),
-BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). BUILD-23/24/25 shipped
-2026-05-04 (UIKit, C#, Dart/Flutter). The final batch (BUILD-27 + 28 +
-30) is the niche-tail commit per `plans/phase-e-tier-2-3-remaining.md`.
+Phase 3 push plumbing already in place. With Phase E shipped, the
+wrapper polish work is the only remaining roadmap item.
 
 ## Relevant Knowledge Refs
 
