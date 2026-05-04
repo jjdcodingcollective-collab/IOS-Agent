@@ -27,6 +27,7 @@ from .git_ops import (
     push_branch,
 )
 from .orchestrator import run_conversion
+from .repo_metadata import banner_for_url
 from .triage import format_triage
 
 
@@ -103,6 +104,16 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
     )
 
     print(f"Repo:       {repo_url}")
+    # Phase 4 pre-flight: try to surface what GitHub already knows about
+    # the repo. Soft-fails on no network / no auth / non-GitHub URL.
+    try:
+        banner = banner_for_url(repo_url)
+    except Exception:
+        banner = None
+    if banner:
+        print(f"About:      {banner}")
+    elif repo_url and "github.com" in repo_url:
+        print("About:      (github metadata unavailable)")
     print(f"Clone to:   {clone_dest}")
     if args.source_subdir:
         print(f"Subdir:     {args.source_subdir}")
