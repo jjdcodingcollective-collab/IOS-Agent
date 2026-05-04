@@ -46,3 +46,27 @@ Last curated: 2026-05-04
   vs Swift diff side-by-side at the top level.
 - Original TypeScript source is untouched — only the listed paths are ever
   modified by the wrapper.
+
+### Documentation scope and sequencing (added 2026-05-04)
+
+- **Docs first, converter scope second.** Expanding the `docs/` guide to
+  cover new source languages (Kotlin, Java, Python, etc.) does not require
+  expanding the converter. The docs are the cheaper experiment and signal
+  audience demand before any converter investment.
+- **Tier 0 docs fixes ship before Tier 1 new content.** BUILD-20 (mechanical
+  inconsistency fixes), BUILD-17 (strict concurrency / Sendable), and
+  BUILD-19 (ARC depth) are sequenced before BUILD-16 (ObjC interop),
+  BUILD-18 (generics/opaque/existentials), BUILD-21 (Kotlin → Java →
+  Python source-language chapters), and BUILD-22 (persistence). Reason:
+  fixing a chapter that contradicts its own samples is corrective; adding
+  a new chapter on top of contradictory samples just spreads the problem.
+- **Per-language template is locked in before the second source-language
+  chapter is written.** Without it, new chapters drift in depth like the
+  existing ones do. Template fields: variables/types, null model, error
+  model, value-vs-reference, concurrency model, generics & polymorphism,
+  memory model, module/visibility, testing idioms, "5 most surprising
+  things."
+- **Tier 1 source-language order: Kotlin → Java → Python.** Kotlin is the
+  near-twin language (highest leverage per page); Java is the largest
+  enterprise audience; Python is the largest data/ML audience. C# / Dart /
+  C++ / Rust deferred to Tier 2/3 backlog.

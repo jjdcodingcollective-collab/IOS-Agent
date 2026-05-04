@@ -104,9 +104,27 @@ This is a living reference. To contribute:
 
 ---
 
+## Scope (Current)
+
+The `docs/` guide is currently scoped to **JavaScript / TypeScript → Swift** developers. A 2026-05-04 review against the broader brief of "transposing popular coding languages to Swift" identified 9 documentation gaps (GAP-D1…D9), most importantly:
+
+- No source-language coverage for Kotlin, Java, Python, C#, Objective-C, C++, Dart, Rust, Go.
+- No Objective-C interop chapter (operationally required for real iOS work).
+- Strict Concurrency / `Sendable` / actor-isolation underweighted.
+- ARC, capture, closure-lifetime depth thin (one paragraph in pitfalls).
+- A few internal inconsistencies in sample code (`try!` / `as!` used in samples that elsewhere forbid them).
+
+These are now tracked as **BUILD-16…22** (specced) and **BUILD-23…30** (backlog) under a new **Phase E** in `plans/gap-analysis-and-build-guide.md`. Phase E is sequenced so correctness fixes (BUILD-20, 17, 19) ship before any new source-language chapters (BUILD-21).
+
+The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expanding source-language coverage in the docs ahead of the converter is intentional — the docs are the cheaper experiment.
+
+---
+
 ## Last Updated
 
-**2026-05-04** — Added GitHub round-trip wrapper (Phase 1 + 2). Validated end-to-end against `the-survival-bible` monorepo (42 files converted, 50/50 structural validation pass). All 15 BUILD-* items from the original gap analysis are shipped.
+**2026-05-04** *(revised same-day)* — Documentation review against "popular coding languages → Swift" brief. Added dimension 6 (Documentation & Source-Language Coverage) to gap analysis: 9 new gaps, 7 specified BUILD items, 8-item backlog, new Phase E roadmap. Source review at `outputs/Language-Transposition-Gap-Analysis.md`. No code changes.
+
+**2026-05-04** — Added GitHub round-trip wrapper (Phase 1 + 2). Validated end-to-end against `the-survival-bible` monorepo (42 files converted, 50/50 structural validation pass). All 15 original BUILD-* items from the gap analysis are shipped.
 
 **2026-04-25** — Initial release covering the full web-to-iOS transition path and the four-phase converter pipeline.
 

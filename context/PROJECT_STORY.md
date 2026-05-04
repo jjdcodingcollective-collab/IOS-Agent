@@ -38,3 +38,16 @@ monorepo) surfaced two issues that have since been fixed:
 Phase 3 (push) is next. The eventual product vision is a paid hosted
 service: "point us at your repo, get an iOS PR" — but only after the local
 round-trip is rock-solid.
+
+A second track opened on 2026-05-04: a focused review of the human-facing
+`docs/` guide against the project's broader brief of "transposing popular
+coding languages to Swift" found the docs were monolingual (JS/TS only),
+missing an Objective-C interop chapter, and underweighting Swift's strict
+concurrency model and ARC discipline. The review also caught a handful of
+internal inconsistencies (sample code using `try!` / `as!` in chapters that
+forbid them, and an `@ObservedObject ↔ useContext` mismap that misleads
+React readers). These are now tracked as GAP-D1…D9 / BUILD-16…30 under a
+new Phase E in the build guide, sequenced so correctness fixes ship before
+any new source-language chapters. The converter scope is intentionally
+unchanged — docs first, converter later, because docs are cheaper to
+experiment with.

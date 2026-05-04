@@ -1,7 +1,7 @@
 # iOS Code Converter — Comprehensive Gap Analysis & Build Guide
 
-> **Date:** 2026-04-25
-> **Scope:** Full assessment of the 4-phase converter pipeline, learning system, and project assembly
+> **Date:** 2026-04-25 (revised 2026-05-04 with documentation & source-language gap analysis)
+> **Scope:** Full assessment of the 4-phase converter pipeline, learning system, project assembly, **and the human-facing coding guide in `docs/`**
 > **Objective:** Identify every gap preventing production-grade iOS readiness, explain *why* each matters, and provide a structured remediation path
 
 ---
@@ -10,7 +10,9 @@
 
 The iOS Code Converter is a well-architected 4-phase pipeline (Analyzer → Reviewer → Rewriter → Assembler) that converts TypeScript/React web apps into Swift/SwiftUI projects with educational annotations. It currently handles ~83% of a sample app automatically, covers 10 pattern detectors, 70+ type mappings, 85+ npm→SPM mappings, and generates a companion learning guide.
 
-However, significant gaps remain across **five dimensions**:
+The companion **`docs/` coding guide** (3,852 lines across 12 chapters) accompanies the converter and is the human-readable reference for developers transitioning to Swift. As of 2026-05-04 it is exclusively scoped to JavaScript/TypeScript→Swift, which mirrors the converter's source-language scope but underdelivers against the project's broader brand of "transposing popular coding languages to Swift."
+
+Significant gaps remain across **six dimensions**:
 
 | Dimension | Gaps Found | Severity Breakdown |
 |---|---|---|
@@ -19,10 +21,11 @@ However, significant gaps remain across **five dimensions**:
 | **Educational System** | 6 gaps | 1 critical, 3 major, 2 minor |
 | **Tooling & Validation** | 5 gaps | 2 critical, 2 major, 1 minor |
 | **Framework & Language Support** | 4 gaps | 1 critical, 2 major, 1 minor |
+| **Documentation & Source-Language Coverage** *(added 2026-05-04)* | 9 gaps | 3 critical, 4 major, 2 minor |
 
-**Total: 32 gaps** — 9 critical, 15 major, 8 minor.
+**Total: 41 gaps** — 12 critical, 19 major, 10 minor.
 
-The 12 bugs documented in `converter-bug-fixes.md` have been addressed in recent commits. This analysis goes beyond those fixes to identify systemic and architectural gaps.
+The 12 bugs documented in `converter-bug-fixes.md` have been addressed in recent commits. The original 32 systemic gaps were closed by BUILD-1…15 (Phases A–D, ✅ delivered 2026-04-25 → 2026-05-04). The 9 new dimension-6 gaps surfaced by the 2026-05-04 docs review are tracked as **GAP-D1…D9** below and addressed by **BUILD-16…22** (Phase E, ⏳ pending). Full source for the docs review: `plans/reviews/2026-05-04-language-transposition.md`.
 
 ---
 
@@ -401,6 +404,79 @@ Each gap is classified by:
   - Sass/LESS variables → Color/Font constants
   - CSS custom properties (`var(--x)`) → SwiftUI `@Environment` or named colors
   - Media queries → `@Environment(\.horizontalSizeClass)` or GeometryReader
+
+---
+
+### 6. Documentation & Source-Language Coverage Gaps *(added 2026-05-04)*
+
+These gaps cover the human-facing coding guide in `docs/`, not the converter pipeline. Severity is judged against the project's stated ambition of being a guide for "transposing popular coding languages to Swift." Full review: `plans/reviews/2026-05-04-language-transposition.md`.
+
+#### GAP-D1: Source-Language Scope is Monolingual (JS/TS Only)
+- **Severity:** Critical
+- **Affected Files:** `docs/`, `README.md:5`
+- **Current State:** A grep across the entire `docs/` tree returns zero migration content for Python, Kotlin, Java, C#, C++, Objective-C, Flutter/Dart, Rust, Go, or Ruby. JavaScript/TypeScript appears 101 times across 10 files. The README explicitly scopes the project to "Web developers who build with modern frameworks (React, Next.js, Vite)."
+- **Impact:** The brand promise ("transposing from popular coding languages to Swift") is unfulfilled. Developers from Android (Kotlin/Java), data/ML (Python), enterprise (.NET / C#), or game development (C++/C#) get nothing tailored to their starting point.
+- **Why This Matters for iOS:** Linguistic distance dictates onboarding speed. Kotlin→Swift is the highest-leverage missed audience because the languages are near-twins; skipping it leaves the largest concept-per-page bridge unbuilt.
+
+#### GAP-D2: No Objective-C Interop Coverage
+- **Severity:** Critical
+- **Affected Files:** `docs/02-swift-fundamentals/` (chapter missing), all chapters that use Apple frameworks
+- **Current State:** Zero references to `@objc`, `@objcMembers`, `dynamic`, bridging headers, `Selector`, `NSObject` subclassing, KVC/KVO, or Objective-C-to-Swift exposure. `Grep -i "@objc|Objective-C|bridging-header"` returns no matches.
+- **Impact:** Operationally serious. Every non-greenfield iOS codebase touches Objective-C — third-party SDKs, legacy modules, framework-level introspection. Devs using the guide to ship a real app will hit this on day one and find no help.
+- **Why This Matters for iOS:** Even pure-Swift apps consume frameworks (UIKit, MapKit, AVFoundation) whose headers expose ObjC-isms. Without mental models for `NSObject`, `Selector`, and `@objc`, devs misread compiler errors and Apple documentation.
+
+#### GAP-D3: Strict Concurrency / Sendable / Actor Isolation Underweighted
+- **Severity:** Critical
+- **Affected Files:** `docs/02-swift-fundamentals/swift-for-web-devs.md`, `docs/03-architecture/patterns.md`, `docs/05-networking/api-integration.md`
+- **Current State:** `actor` and `@MainActor` appear in two snippets without conceptual treatment. `Sendable` is never named. The Swift 6 strict-concurrency model — the dominant porting headache as of 2025 — is unaddressed.
+- **Impact:** Any developer enabling Swift 6 strict-concurrency mode (default in new Xcode templates) will see hundreds of warnings the guide never explains. Async chapters that omit Sendable are incomplete.
+- **Why This Matters for iOS:** Strict concurrency rejects code patterns the guide teaches as idiomatic (mutating `self` from a background `Task`, passing non-Sendable models across actor boundaries).
+
+#### GAP-D4: Generics, Opaque Types, and Existentials Unexplained
+- **Severity:** Major
+- **Affected Files:** `docs/02-swift-fundamentals/swift-for-web-devs.md`
+- **Current State:** No section on generics, no explanation of `some View` as an opaque return type, no `any P` vs `some P` distinction, no associated types, no `where` clauses, no type erasure (`AnyView`, `AnyPublisher`).
+- **Impact:** The cheat sheet maps "interface → protocol" but provides no model for protocols-with-associated-types, which are unavoidable in Swift and behave nothing like TypeScript interfaces. SwiftUI signatures (`some View`) appear dozens of times without ever being explained.
+
+#### GAP-D5: ARC and Closure-Capture Coverage is One Paragraph
+- **Severity:** Major
+- **Affected Files:** `docs/11-pitfalls/web-dev-gotchas.md` (gotcha #6, ~20 lines)
+- **Current State:** Single bullet on retain cycles with one `[weak self]` example. No coverage of `weak` vs `unowned`, escaping vs non-escaping closures, Combine subscription lifetime, `Task` retention, or capture lists beyond the bare minimum.
+- **Impact:** ARC is the #1 correctness hazard in Swift after concurrency. Twenty lines is structurally underweighted for the problem class.
+
+#### GAP-D6: Internal Inconsistencies Between Chapters
+- **Severity:** Major
+- **Affected Files:** `docs/11-pitfalls/web-dev-gotchas.md:65`, `docs/05-networking/api-integration.md:22`, `docs/02-swift-fundamentals/swift-for-web-devs.md:362`
+- **Current State:**
+  - `web-dev-gotchas.md` gotcha #2 forbids `try!`/`as!`. Same file's gotcha #3 example uses `try! Data(contentsOf:)`. `api-integration.md:22` uses `response as! HTTPURLResponse` in a sample.
+  - `swift-for-web-devs.md:362` maps `@ObservedObject` to `useContext`. The correct React analogue is `@EnvironmentObject` / `@Environment`.
+  - Cheat-sheet line "interface → protocol" oversimplifies — Swift PATs, conditional conformance, and existentials behave differently enough to mislead.
+- **Impact:** Readers internalize the rules from the pitfalls chapter, then see the rules violated in the chapter they paste from. Erodes trust and propagates anti-patterns into generated code.
+
+#### GAP-D7: UIKit, Combine, Codable Customization, KeyPath, Property-Wrapper Authoring All Missing
+- **Severity:** Major
+- **Affected Files:** `docs/02-swift-fundamentals/`, `docs/04-ui-development/`, `docs/05-networking/`
+- **Current State:**
+  - **UIKit:** mentioned only in passing. No chapter, no migration path, no `UIViewRepresentable` bridging.
+  - **Combine:** zero references. Still in production iOS codebases everywhere.
+  - **Codable customization:** `JSONDecoder().decode(...)` shown but no `CodingKeys`, no custom `init(from:)`, no key strategies.
+  - **KeyPath:** used implicitly (`\.colorScheme`) but never introduced.
+  - **Property-wrapper authoring** (`@propertyWrapper`, `wrappedValue`, `projectedValue`, `$` projection): missing.
+  - **Result builders / `@ViewBuilder`:** the mechanism is invisible despite SwiftUI being a result-builder DSL.
+  - **Implicitly Unwrapped Optionals (`String!`):** never mentioned but appear in Apple framework signatures.
+- **Impact:** The cheat-sheet chapter is being asked to do the work of a language reference at cheat-sheet depth, leaving conceptual blind spots that Apple's own documentation will surface.
+
+#### GAP-D8: No Core Data / SwiftData / Persistence Chapter Mapped from ORM Concepts
+- **Severity:** Major
+- **Affected Files:** `docs/` (chapter missing)
+- **Current State:** UserDefaults is referenced briefly in the security guide. There is no persistence chapter mapping from Prisma, Drizzle, ActiveRecord, SQLAlchemy, Hibernate, or Room.
+- **Impact:** Persistence is one of the top three things any non-trivial iOS app needs. Web devs from ORM backgrounds expect a similar mental model, and the migration path is non-obvious without explicit guidance.
+
+#### GAP-D9: Privacy Manifests, ATT, IDFA, Background Modes Underweighted
+- **Severity:** Minor
+- **Affected Files:** `docs/08-security/security-guide.md`, `docs/09-deployment/`
+- **Current State:** Privacy manifests (mandatory since May 2024) get light treatment relative to operational importance. App Tracking Transparency, IDFA, BGTaskScheduler, push notification setup, App Groups, and entitlements/capabilities are not mapped from the conceptual gaps each source-language community has.
+- **Impact:** Devs hit App Store rejection at submission for issues the guide could have flagged earlier.
 
 ---
 
@@ -1192,11 +1268,81 @@ Update `extract_jsx_children()` to handle fragment closing tags (`</>`, `</React
 
 ---
 
+### BUILD-16: Author Objective-C Interop Chapter (Addresses GAP-D2) — ⏳ pending
+- **Effort:** Medium (1 chapter, ~400 lines)
+- **Files:** new `docs/02-swift-fundamentals/swift-objc-interop.md`; cross-link from `swift-for-web-devs.md` cheat sheet and `03-architecture/patterns.md`
+- **Approach:** Cover `@objc`, `@objcMembers`, `dynamic`, bridging headers, `Selector` / `#selector`, `NSObject` subclassing, KVC/KVO, framework header consumption, ARC bridging across the boundary. Include a "what to do when you see this in a stack trace" appendix.
+- **Acceptance:** Reader can read an Apple framework header, identify ObjC-isms, and call into / be called from ObjC code without trial-and-error.
+
+### BUILD-17: Strict Concurrency & Sendable Chapter (Addresses GAP-D3) — ⏳ pending
+- **Effort:** Medium (1 chapter, ~350 lines)
+- **Files:** new `docs/02-swift-fundamentals/concurrency-and-sendable.md`; expand mentions in `03-architecture/patterns.md` and `05-networking/api-integration.md`
+- **Approach:** Conceptual model first (data-race-free by construction), then `actor`, `@MainActor`, `Sendable` (auto vs explicit conformance), `nonisolated`, `@preconcurrency`, region-based isolation, common warnings under Swift 6 strict mode. Pair with the converter's emit rules so generated code aligns.
+- **Acceptance:** A reader enables strict concurrency on a generated project, sees zero warnings on green-path output, and can read the diagnostic for any warning that does appear.
+
+### BUILD-18: Generics, Opaque Types & Existentials Chapter (Addresses GAP-D4) — ⏳ pending
+- **Effort:** Small-Medium (1 chapter, ~250 lines)
+- **Files:** new `docs/02-swift-fundamentals/generics-and-protocols-deep.md`
+- **Approach:** Generics with `where` clauses, PATs, `some` (opaque) vs `any` (existential), conditional conformance, type erasure (`AnyView`, `AnyPublisher`, `AnyHashable`), why `some View` exists in SwiftUI signatures. Map each concept from TypeScript generics where possible; flag Swift-only ideas explicitly.
+- **Acceptance:** Reader can write `func first<T: Comparable>(in: [T]) -> T?` and explain why `some View` is not the same as `View`.
+
+### BUILD-19: Expand ARC, Capture, and Lifetime Chapter (Addresses GAP-D5) — ⏳ pending
+- **Effort:** Small (~150 lines new + restructure of pitfalls #6)
+- **Files:** new `docs/02-swift-fundamentals/arc-and-lifetimes.md`; demote `web-dev-gotchas.md#6` to a one-line pointer
+- **Approach:** Reference vs value identity, `weak` vs `unowned`, escaping vs non-escaping closures, capture-list shapes, `Task` retention, Combine subscription lifetime (`AnyCancellable`, `store(in:)`), how Instruments diagnoses leaks.
+- **Acceptance:** Reader can identify which closures need `[weak self]` and explain why structs don't need it.
+
+### BUILD-20: Fix Internal Inconsistencies Across Chapters (Addresses GAP-D6) — ⏳ pending
+- **Effort:** Small (mechanical edits)
+- **Files:** `docs/11-pitfalls/web-dev-gotchas.md` (gotcha #3 sample), `docs/05-networking/api-integration.md:22`, `docs/02-swift-fundamentals/swift-for-web-devs.md:362` and cheat-sheet line for `interface → protocol`
+- **Approach:**
+  - Replace `try!` and `as!` in pitfalls #3 and api-integration with the safe forms the docs preach elsewhere.
+  - Correct the `@ObservedObject ↔ useContext` mapping to `@EnvironmentObject ↔ useContext`. Add a callout for when `@ObservedObject` is correct.
+  - Add a footnote on the cheat-sheet `interface → protocol` row noting Swift PATs/existentials are not 1:1 with TS interfaces.
+  - Add a callout in the optionals section about Implicitly Unwrapped Optionals (`String!`) appearing in Apple APIs.
+- **Acceptance:** Grep across `docs/` finds no `try!` or `as!` in sample code outside an explicit "what NOT to do" block.
+
+### BUILD-21: New Source-Language Chapters — Tier 1 (Kotlin, Java, Python) (Addresses GAP-D1) — ⏳ pending
+- **Effort:** Large (3 chapters, ~600 lines each)
+- **Files:**
+  - new `docs/02-swift-fundamentals/from-kotlin.md`
+  - new `docs/02-swift-fundamentals/from-java.md`
+  - new `docs/02-swift-fundamentals/from-python.md`
+- **Approach:** Adopt a per-language template (variables/types, null model, error model, value-vs-reference, concurrency model, generics & polymorphism, memory model, module/visibility, testing idioms, "5 most surprising things"). Cross-link to the JS/TS chapter where concepts are shared so we don't duplicate.
+- **Priority within tier:** Kotlin first (highest leverage per page — near-twin language), then Java (largest enterprise audience), then Python (largest data/ML audience).
+- **Acceptance:** A Kotlin developer can read `from-kotlin.md` plus the strict-concurrency chapter and convert a small Kotlin file to idiomatic Swift without further help.
+
+### BUILD-22: Persistence (Core Data / SwiftData) Chapter Mapped from ORMs (Addresses GAP-D8) — ⏳ pending
+- **Effort:** Medium (~400 lines)
+- **Files:** new `docs/03-architecture/persistence.md`
+- **Approach:** Map Prisma / Drizzle / ActiveRecord / SQLAlchemy / Hibernate / Room concepts to Core Data and SwiftData. Cover schema definition, migrations, queries (`@FetchRequest`, `@Query`), relationships, performance pitfalls, and CloudKit sync. Include a "when to pick which" decision tree (UserDefaults vs Keychain vs Files vs Core Data vs SwiftData vs SQLite.swift).
+- **Acceptance:** Reader can model a 3-entity schema with one-to-many relationships in SwiftData and write a query view that updates reactively.
+
+---
+
+### Tier 2/3 backlog (enumerated, not yet specified) — ⏳ pending
+
+These are listed here so they don't drift out of view, but full BUILD-* specs are deferred until Tier 1 ships.
+
+- **BUILD-23 (Tier 2):** UIKit chapter mapped from imperative-UI traditions (Android Views, WPF/WinForms, ObjC UIKit history). Many production iOS jobs require UIKit competence; SwiftUI-only is unrealistic.
+- **BUILD-24 (Tier 2):** C# → Swift chapter (Xamarin/MAUI sunset, Unity gameplay devs).
+- **BUILD-25 (Tier 2):** Dart/Flutter → Swift chapter (cross-platform replatforming).
+- **BUILD-26 (Tier 2):** Deepen JS/TS chapter — Combine, Codable customization, KeyPath, property-wrapper authoring, result builders, IUO.
+- **BUILD-27 (Tier 3):** C++/Objective-C++ interop (Swift 5.9+ first-class C++ interop, game/SDK devs).
+- **BUILD-28 (Tier 3):** Rust → Swift FFI (cbindgen, Swift package wrapping a Rust static lib).
+- **BUILD-29 (Tier 3):** Privacy manifest, ATT, IDFA, BGTaskScheduler, push, App Groups, entitlements — elevate from buried sections to a dedicated operational chapter.
+- **BUILD-30 (Tier 4):** Go / Ruby / PHP migration chapters — small audiences, document only when bandwidth allows.
+
+---
+
 ## Part 3: Priority Roadmap
 
-Based on impact, difficulty, and dependency ordering. **All 15 BUILD-* items
-shipped 2026-04-25 → 2026-05-04**; the active roadmap is now the GitHub
-round-trip wrapper (see `plans/github-round-trip.md`).
+Based on impact, difficulty, and dependency ordering. **All 15 original BUILD-*
+items shipped 2026-04-25 → 2026-05-04**. The 2026-05-04 docs review surfaced 9
+new gaps (GAP-D1…D9) and added 7 specified BUILD items (BUILD-16…22) plus a
+Tier 2/3/4 backlog (BUILD-23…30). The active roadmap is the GitHub round-trip
+wrapper (see `plans/github-round-trip.md`) **and** Phase E documentation work
+below.
 
 ### Phase A — Foundation (Unblocks Everything Else) — ✅ delivered
 1. ✅ **BUILD-2** — Import dependency graph (enables cross-file type resolution)
@@ -1228,6 +1374,27 @@ round-trip wrapper (see `plans/github-round-trip.md`).
 - ⏳ Phase 3 — push the conversion branch to GitHub
 - ⏳ Phase 4 — first-class monorepo discovery (auto-detect `apps/mobile` etc.)
 - ⏳ Phase 5 — hosted service wrapping the CLI (paid product)
+
+### Phase E — Documentation Depth & Source-Language Coverage — ⏳ pending
+
+Sequenced for highest reader-value-per-page-written. Tier 0 (correctness) ships
+before any new language chapters so fixes don't get re-introduced into copy
+once the surface area grows.
+
+**Tier 0 — Correctness fixes (ship before adding more languages):**
+1. ⏳ **BUILD-20** — Fix internal inconsistencies (`try!`/`as!` in samples, `@ObservedObject` mapping, IUO callout). Mechanical, low-risk, blocks credibility of every other chapter.
+2. ⏳ **BUILD-17** — Strict concurrency / Sendable / actor-isolation chapter.
+3. ⏳ **BUILD-19** — ARC, capture, and closure-lifetime chapter.
+
+**Tier 1 — Highest-leverage new content:**
+4. ⏳ **BUILD-16** — Objective-C interop chapter (operational table stakes for real iOS work).
+5. ⏳ **BUILD-18** — Generics, opaque types, and existentials chapter (unlocks honest reading of SwiftUI signatures).
+6. ⏳ **BUILD-21** — Tier 1 source-language chapters: Kotlin → Java → Python (in that order; Kotlin first by leverage).
+7. ⏳ **BUILD-22** — Persistence chapter mapped from ORM concepts.
+
+**Tier 2/3/4 — Backlog (BUILD-23…30):** UIKit chapter, C# / Dart / C++ / Rust source-language chapters, deeper JS/TS material, privacy-manifest operational chapter, smaller-audience languages. Specced when Tier 1 ships.
+
+**Cross-cutting recommendation:** before writing more source-language chapters, lock in the per-language template (variables/types, null model, error model, value-vs-reference, concurrency model, generics & polymorphism, memory model, module/visibility, testing idioms, "5 most surprising things"). Without this, new chapters will drift in depth like the existing ones do.
 
 ---
 
@@ -1313,7 +1480,17 @@ Bug fixes that emerged from this run:
 | GAP-F2 | New: `converter/rewriter/state_converter.py` |
 | GAP-F3 | `converter/analyzer/patterns.py`, `converter/rewriter/component_converter.py` |
 | GAP-F4 | `converter/rewriter/component_converter.py:1218-1256` |
+| GAP-D1 | `docs/` (all chapters); `README.md:5` (scope statement) |
+| GAP-D2 | `docs/02-swift-fundamentals/` (chapter missing — new file: `swift-objc-interop.md`) |
+| GAP-D3 | `docs/02-swift-fundamentals/swift-for-web-devs.md`, `docs/03-architecture/patterns.md`, `docs/05-networking/api-integration.md` |
+| GAP-D4 | `docs/02-swift-fundamentals/swift-for-web-devs.md` (cheat sheet); new file: `generics-and-protocols-deep.md` |
+| GAP-D5 | `docs/11-pitfalls/web-dev-gotchas.md` (gotcha #6); new file: `arc-and-lifetimes.md` |
+| GAP-D6 | `docs/11-pitfalls/web-dev-gotchas.md` (#3 sample), `docs/05-networking/api-integration.md:22`, `docs/02-swift-fundamentals/swift-for-web-devs.md:362` and cheat-sheet line for `interface → protocol` |
+| GAP-D7 | `docs/02-swift-fundamentals/`, `docs/04-ui-development/`, `docs/05-networking/` (new chapters needed: UIKit, Combine, Codable customization, KeyPath, property-wrapper authoring, IUO) |
+| GAP-D8 | `docs/03-architecture/` (new file: `persistence.md`) |
+| GAP-D9 | `docs/08-security/security-guide.md`, `docs/09-deployment/deployment-guide.md` |
 
 ---
 
 *Generated by iOS Agent Gap Analysis — 2026-04-25*
+*Revised 2026-05-04 — Added dimension 6 (Documentation & Source-Language Coverage), GAP-D1…D9, BUILD-16…22, Tier 2/3/4 backlog (BUILD-23…30), and Phase E roadmap. Source review: `plans/reviews/2026-05-04-language-transposition.md`.*
