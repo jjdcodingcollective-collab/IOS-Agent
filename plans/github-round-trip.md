@@ -144,13 +144,30 @@ Out of scope for Phase 3 (covered by Phase 5):
 - `--open-pr` / `gh pr create` — no PR creation yet.
 - Webhook-driven re-conversion — not part of the manual surface.
 
-**Phase 4 — Conversational polish**
-- Pre-flight: parse the URL, fetch repo metadata via the GitHub API,
-  show the user "About to convert: acme/web-app (default branch: main,
-  last push: 2 days ago, primary language: TypeScript)"
-- Post-flight: print PR-ready next steps with the branch URL
-- Educational mode: explain what's in the generated branch for first-time
-  users
+**Phase 4 — Conversational polish** — ✅ shipped
+- Pre-flight: `wrapper/repo_metadata.py` parses GitHub URLs (HTTPS / SSH /
+  scheme-less / with `.git`), fetches `/repos/{owner}/{repo}`, and renders
+  a single-line "About:" banner: `acme/web-app · public · TypeScript ·
+  default branch 'main' · last push 2 days ago · 142 stars · 31 open
+  issues/PRs`. Auth resolves via `gh auth token` → `GITHUB_TOKEN` → anon.
+  Soft-fails on every error path (network down, non-GitHub URL, 404,
+  rate-limit) so the conversion never blocks on metadata.
+- Post-flight: `wrapper/post_flight.py` renders a copy-pasteable
+  `gh pr create` command (with `--body-file
+  .ios-conversion/generation-summary.md`) and a fallback
+  `…/compare/<base>...<head>?expand=1` URL for users without `gh`
+  installed. The default base branch comes from the metadata fetch when
+  available, else `"main"`.
+- Educational mode: `wrapper/explainer.py` prints a short "What's on this
+  branch" block between the local commit summary and the push prompt.
+  Two flavours — clean validation runs vs `Requires-more-review/`
+  prefixed runs.
+- `--brief` flag on both `convert` and `convert-from-github` suppresses
+  the metadata banner and the explainer block. The post-flight PR
+  command always prints because it's the actionable output.
+- Tests: 57 unit tests across `wrapper/tests/test_repo_metadata.py` and
+  `wrapper/tests/test_post_flight.py`. No network calls in tests. Run
+  with `python3 -m unittest discover -s wrapper`.
 
 **Phase 5 — Optional PR creation**
 - `--open-pr` flag → `gh pr create` with `generation-summary.md` as body
@@ -176,6 +193,7 @@ python -m wrapper convert-from-github <github-url>
     [--no-validate]
     [--yes]                    skip prompts; implies --push
     [--push | --no-push]       Phase 3; default is to prompt after commit
+    [--brief]                  Phase 4; suppress metadata banner + explainer
 ```
 
 ## Wrapper command surface (proposed)

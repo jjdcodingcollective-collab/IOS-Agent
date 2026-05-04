@@ -1,6 +1,6 @@
 # References
 
-Last curated: 2026-05-04 (Phase E complete — BUILD-27/28/30 added)
+Last curated: 2026-05-04 (Wrapper Phase 4 shipped — conversational polish)
 
 ## Sources
 
@@ -22,10 +22,13 @@ Last curated: 2026-05-04 (Phase E complete — BUILD-27/28/30 added)
   roadmap. **Phase E Tier 0 + Tier 1 (BUILD-16…22) shipped 2026-05-04.**
   **BUILD-26 + BUILD-29 also shipped 2026-05-04** out of the Tier 2/3 backlog.
 - `plans/github-round-trip.md` — design spec for the wrapper's GitHub round-trip
-  (Phases 1–5). Phases 1, 2, and 3 delivered. Phase 3 added `--push`/`--no-push`
-  on `convert-from-github`, `push_branch()` + `PushInfo` in `wrapper/git_ops.py`,
-  protected-branch refusal at push time, and a read-only fallback when
-  credentials are missing.
+  (Phases 1–5). Phases 1–4 delivered. Phase 3 added `--push`/`--no-push`,
+  `push_branch()` + `PushInfo`, protected-branch refusal, and a read-only
+  fallback. Phase 4 added pre-flight repo-metadata banner, post-flight
+  `gh pr create` command + compare-URL fallback, educational mode, and
+  `--brief`. Phase 5 (`--open-pr`) is the only remaining open phase.
+- `plans/wrapper-phase-4-conversational-polish.md` — Phase 4 sub-plan,
+  shipped 2026-05-04 in three commits matching the locked sequencing.
 - `plans/agent-interaction-design.md` — three-surface model (CLI / wrapper /
   Claude Code) and long-term product vision.
 - `plans/ios-code-converter.md` — original converter design (historical).
@@ -70,7 +73,7 @@ Phase E Tier 3/4 — BUILD-27/28/30 (2026-05-04, Phase E complete):
 
 ```
 python -m wrapper convert <path>             # local only (Phase 1)
-python -m wrapper convert-from-github <url>  # clone + convert + commit + push (Phases 2/3)
+python -m wrapper convert-from-github <url>  # clone + convert + commit + push (Phases 2/3) + polish (Phase 4)
   --branch <name>       override ios-conversion default
   --app-name <name>     override derived app name
   --source-subdir <dir> scope to monorepo subdirectory
@@ -79,4 +82,18 @@ python -m wrapper convert-from-github <url>  # clone + convert + commit + push (
   --reuse-clone         skip re-cloning if workspace exists
   --push                push the conversion branch to origin (Phase 3)
   --no-push             commit locally only; do not push (Phase 3)
+  --brief               suppress metadata banner + educational block (Phase 4)
 ```
+
+### Wrapper modules
+
+- `wrapper/__main__.py` — argparse + subcommand dispatch
+- `wrapper/orchestrator.py` — runs the converter CLI as a subprocess; parses reports into `ConversionResult`
+- `wrapper/triage.py` — top-N review-target summary
+- `wrapper/git_ops.py` — clone / branch / commit / push (Phases 2/3); `CommitInfo` + `PushInfo`
+- `wrapper/repo_metadata.py` — Phase 4: GitHub URL parser, REST `/repos/{owner}/{repo}` fetch, banner formatter; soft-fails on every error path
+- `wrapper/post_flight.py` — Phase 4: `gh pr create` formatter + `compare/<base>...<head>?expand=1` URL fallback
+- `wrapper/explainer.py` — Phase 4: educational "What's on this branch" block (two flavours, depending on `Requires-more-review/` prefix)
+- `wrapper/tests/test_repo_metadata.py` — 33 tests
+- `wrapper/tests/test_post_flight.py` — 24 tests; covers `post_flight` and `explainer`
+- Run all wrapper tests: `python3 -m unittest discover -s wrapper`

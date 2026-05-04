@@ -37,7 +37,7 @@ Pipeline:
 TS source → analyzer → reviewer → rewriter → assembler → validator → reports + Swift project
 ```
 
-Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md`); wrapper is at Phase 3 (clone + convert + local commit + opt-in push). Push refuses protected branches (`main`/`master`/`develop`/`trunk`/`release`), never force-pushes, and falls back read-only if credentials are missing.
+Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md`); wrapper is at Phase 4 (clone + convert + local commit + opt-in push + conversational polish). Push refuses protected branches (`main`/`master`/`develop`/`trunk`/`release`), never force-pushes, and falls back read-only if credentials are missing. Phase 4 adds a pre-flight GitHub repo-metadata banner, a copy-pasteable `gh pr create` command after a successful push (with a compare-URL fallback for users without `gh`), and an educational "what's on this branch" block — all of which can be suppressed with `--brief`.
 
 ---
 
@@ -141,6 +141,8 @@ The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expandi
 ---
 
 ## Last Updated
+
+**2026-05-04** *(Wrapper Phase 4 shipped — conversational polish)* — Three new wrapper modules: `wrapper/repo_metadata.py` (parses HTTPS/SSH/scheme-less GitHub URLs, fetches `/repos/{owner}/{repo}` via the REST API with auth resolved through `gh auth token` → `GITHUB_TOKEN` → anonymous, renders a single-line "About:" banner with visibility/language/default-branch/last-push/stars/issues — soft-fails on every error path), `wrapper/post_flight.py` (after a successful push, prints a copy-pasteable `gh pr create` command with `--body-file .ios-conversion/generation-summary.md` plus a fallback `compare/<base>...<head>?expand=1` URL for users without `gh`), and `wrapper/explainer.py` (a short "What's on this branch" block between the commit and the push prompt, with separate text for clean runs vs `Requires-more-review/` prefixed runs). New `--brief` flag on both subcommands suppresses the metadata banner and the explainer block; the PR command stays. 57 unit tests (33 metadata + 24 post-flight/explainer), no network in tests. Plan: `plans/wrapper-phase-4-conversational-polish.md`. The remaining wrapper roadmap is Phase 5 (`--open-pr` via `gh pr create`).
 
 **2026-05-04** *(BUILD-27 + BUILD-28 + BUILD-30 shipped — C++, Rust, server-langs; Phase E complete)* — Three new chapters under `02-swift-fundamentals/`: `cpp-interop.md` (Swift 5.9+ first-class C++ interop, `.interoperabilityMode(.Cxx)`, module map setup, `std::string`/`std::vector` bridging, Objective-C++ `.mm` shims for exception translation, vendored static libs vs SPM binary frameworks, ABI-breakage and `std::string_view` lifetime hazards), `rust-ffi.md` (`extern "C"` + `#[no_mangle]` + `catch_unwind`, `cbindgen` header generation, `Box::into_raw`/`Box::from_raw` ownership patterns, string-bridging via `withCString` and `String(cString:)`, async strategies, `uniffi-rs` and `cargo-swift` higher-level options, building an `xcframework` with `cargo` + `xcodebuild -create-xcframework`), and `from-server-langs.md` (combined Go/Ruby/PHP chapter — goroutines/channels → `Task`/`AsyncStream`, Go interfaces vs Swift protocols with PAT caveats, no `method_missing` and no monkey-patching for Ruby refugees, no type-juggling and no superglobals for PHP refugees). README TOC, ACTIVE, REFERENCES, and gap-analysis build guide updated; **Phase E backlog is now empty**.
 
