@@ -19,7 +19,7 @@ Last curated: 2026-05-04
   remediation plan. **All 15 original BUILD items complete.** Revised
   2026-05-04 to add dimension 6 (Documentation & Source-Language Coverage),
   GAP-D1…D9, BUILD-16…22, Tier 2/3/4 backlog (BUILD-23…30), and Phase E
-  roadmap.
+  roadmap. **Phase E Tier 0 + Tier 1 (BUILD-16…22) shipped 2026-05-04.**
 - `plans/github-round-trip.md` — design spec for the wrapper's GitHub round-trip
   (Phases 1–5). Phases 1 and 2 delivered.
 - `plans/agent-interaction-design.md` — three-surface model (CLI / wrapper /
@@ -33,6 +33,18 @@ Last curated: 2026-05-04
   brief. Source for GAP-D1…D9 and BUILD-16…30. (A copy also lives at
   `/storage/outputs/ios-agent/Language-Transposition-Gap-Analysis.md` for
   the user's Files panel; the in-repo copy is canonical.)
+
+### Documentation Chapters (Phase E)
+
+New (2026-05-04):
+- `docs/02-swift-fundamentals/concurrency-and-sendable.md` — strict concurrency, actors, `@MainActor`, `Sendable`.
+- `docs/02-swift-fundamentals/arc-and-lifetimes.md` — ARC, retain cycles, `weak`/`unowned`, capture lists, `Task` retention.
+- `docs/02-swift-fundamentals/swift-objc-interop.md` — `@objc`, bridging, `#selector`, KVO, NSError, framework header reading.
+- `docs/02-swift-fundamentals/generics-and-protocols-deep.md` — generics, `some` (opaque) vs `any` (existential), PATs, type erasure.
+- `docs/02-swift-fundamentals/from-kotlin.md` — Kotlin → Swift transposition.
+- `docs/02-swift-fundamentals/from-java.md` — Java → Swift transposition.
+- `docs/02-swift-fundamentals/from-python.md` — Python → Swift transposition.
+- `docs/03-architecture/persistence.md` — UserDefaults / Keychain / FileManager / SwiftData / Core Data / CloudKit; ORM mappings (Prisma / Drizzle / ActiveRecord / SQLAlchemy / Hibernate / Room).
 
 ### Wrapper Command Surface
 

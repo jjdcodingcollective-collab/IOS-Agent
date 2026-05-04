@@ -53,9 +53,14 @@ if let name = json["name"] as? String {
 ```swift
 // WRONG — blocks UI, causes spinning indicator
 func loadData() {
-    let data = try! Data(contentsOf: hugeFileURL)  // Synchronous file read
-    let items = try! JSONDecoder().decode([Item].self, from: data)
-    self.items = items
+    // Synchronous file read on the main thread freezes the UI
+    do {
+        let data = try Data(contentsOf: hugeFileURL)
+        let items = try JSONDecoder().decode([Item].self, from: data)
+        self.items = items
+    } catch {
+        // ...
+    }
 }
 
 // RIGHT — async, off main thread

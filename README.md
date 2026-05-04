@@ -45,9 +45,17 @@ Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md
 
 ### Language & Fundamentals
 - [Swift for Web Developers](docs/02-swift-fundamentals/swift-for-web-devs.md) — Swift concepts mapped to JavaScript/TypeScript
+- [Swift for Kotlin Developers](docs/02-swift-fundamentals/from-kotlin.md) — Near-twin language transposition (coroutines, sealed classes, data classes)
+- [Swift for Java Developers](docs/02-swift-fundamentals/from-java.md) — POJOs → structs, checked exceptions → typed throws, GC → ARC
+- [Swift for Python Developers](docs/02-swift-fundamentals/from-python.md) — Static typing, no truthiness, no GIL, optionals as types
+- [Strict Concurrency & Sendable](docs/02-swift-fundamentals/concurrency-and-sendable.md) — Actors, `@MainActor`, `Sendable`, Swift 6 strict mode
+- [ARC, Captures & Lifetimes](docs/02-swift-fundamentals/arc-and-lifetimes.md) — Reference counting, retain cycles, `[weak self]`, `Task` retention
+- [Generics, Opaque Types & Existentials](docs/02-swift-fundamentals/generics-and-protocols-deep.md) — `some` vs `any`, PATs, type erasure
+- [Objective-C Interop](docs/02-swift-fundamentals/swift-objc-interop.md) — `@objc`, bridging headers, `#selector`, KVO, framework header reading
 
 ### Architecture
 - [Architecture Patterns](docs/03-architecture/patterns.md) — Translating web architecture to iOS (MVC, MVVM, state management)
+- [Persistence](docs/03-architecture/persistence.md) — UserDefaults, Keychain, FileManager, SwiftData, Core Data, CloudKit (mapped from ORMs)
 
 ### UI Development
 - [UI Development with SwiftUI](docs/04-ui-development/swiftui-guide.md) — Building interfaces, mapped from web components and CSS
@@ -106,21 +114,19 @@ This is a living reference. To contribute:
 
 ## Scope (Current)
 
-The `docs/` guide is currently scoped to **JavaScript / TypeScript → Swift** developers. A 2026-05-04 review against the broader brief of "transposing popular coding languages to Swift" identified 9 documentation gaps (GAP-D1…D9), most importantly:
+The `docs/` guide now covers **JavaScript / TypeScript, Kotlin, Java, and Python → Swift** developers, plus operational depth on Objective-C interop, strict concurrency, ARC, generics, and persistence.
 
-- No source-language coverage for Kotlin, Java, Python, C#, Objective-C, C++, Dart, Rust, Go.
-- No Objective-C interop chapter (operationally required for real iOS work).
-- Strict Concurrency / `Sendable` / actor-isolation underweighted.
-- ARC, capture, closure-lifetime depth thin (one paragraph in pitfalls).
-- A few internal inconsistencies in sample code (`try!` / `as!` used in samples that elsewhere forbid them).
+**Phase E Tier 0 + Tier 1 shipped 2026-05-04** (BUILD-16 through BUILD-22): seven new chapters, three correctness fixes, and a per-language template established for future source-language additions.
 
-These are now tracked as **BUILD-16…22** (specced) and **BUILD-23…30** (backlog) under a new **Phase E** in `plans/gap-analysis-and-build-guide.md`. Phase E is sequenced so correctness fixes (BUILD-20, 17, 19) ship before any new source-language chapters (BUILD-21).
+Remaining backlog under Phase E (BUILD-23…30): UIKit chapter, additional source-language chapters (C#, Dart/Flutter, C++, Rust, Go, Ruby, PHP), deepening of the JS/TS material, and a dedicated privacy-manifest / ATT / BGTaskScheduler operational chapter. See `plans/gap-analysis-and-build-guide.md` for full specs.
 
 The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expanding source-language coverage in the docs ahead of the converter is intentional — the docs are the cheaper experiment.
 
 ---
 
 ## Last Updated
+
+**2026-05-04** *(Phase E Tier 0 + Tier 1 shipped, evening)* — Authored seven new chapters: `swift-objc-interop.md`, `concurrency-and-sendable.md`, `arc-and-lifetimes.md`, `generics-and-protocols-deep.md`, `from-kotlin.md`, `from-java.md`, `from-python.md`, plus `03-architecture/persistence.md`. Fixed internal inconsistencies in `web-dev-gotchas.md`, `api-integration.md`, and `swift-for-web-devs.md` (eliminated `try!`/`as!` from happy-path samples; corrected `@EnvironmentObject ↔ useContext` mapping; added IUO callout). BUILD-16…22 marked ✅ in the gap-analysis build guide. No converter code changes.
 
 **2026-05-04** *(revised same-day)* — Documentation review against "popular coding languages → Swift" brief. Added dimension 6 (Documentation & Source-Language Coverage) to gap analysis: 9 new gaps, 7 specified BUILD items, 8-item backlog, new Phase E roadmap. Source review at `outputs/Language-Transposition-Gap-Analysis.md`. No code changes.
 

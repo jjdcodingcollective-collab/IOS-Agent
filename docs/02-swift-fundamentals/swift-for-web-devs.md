@@ -78,6 +78,20 @@ print(email!.uppercased())
 
 **Mental model:** `String?` in Swift = `string | null` in TypeScript. The compiler forces you to handle the `nil` case.
 
+#### Implicitly Unwrapped Optionals (`String!`)
+
+You will see `String!` (with `!` instead of `?`) in Apple framework signatures. This is an **Implicitly Unwrapped Optional** — declared as optional but auto-unwrapped at every use site. If the value is `nil` when read, your app crashes.
+
+```swift
+// Apple framework property — declared T! because it's set after init.
+var label: UILabel!  // crashes if you read it before viewDidLoad fires
+
+// In your own code, prefer T? — IUOs are a legacy convenience for Objective-C
+// interop and pre-init UIKit outlets. SwiftUI rarely needs them.
+```
+
+**Rule for your own code:** use `T?` and unwrap explicitly. Reach for `T!` only when bridging legacy ObjC headers or `@IBOutlet` properties that the framework guarantees are non-nil after a known lifecycle event.
+
 ---
 
 ## Functions
@@ -358,12 +372,26 @@ SwiftUI uses property wrappers extensively for state management. No direct JS eq
 // @Binding — two-way binding to parent state (like React props + callback)
 @Binding var isOn: Bool
 
-// @ObservedObject — subscribe to an external observable (like useContext)
+// @ObservedObject — subscribe to an observable passed in by a parent
+// (like a Zustand/MobX store handed down as a prop — NOT useContext).
+// Use this when a parent View owns the object and passes it down.
 @ObservedObject var viewModel: MyViewModel
 
-// @Environment — read from the environment (like React Context)
+// @StateObject — own the lifecycle of an observable in this View
+// (initialise once, survives redraws). Pair with @ObservedObject in children.
+@StateObject private var viewModel = MyViewModel()
+
+// @EnvironmentObject — receive an observable injected from anywhere up the
+// View tree (this is the real React Context analogue).
+@EnvironmentObject var session: SessionStore
+
+// @Environment — read framework- or app-provided environment values
+// (color scheme, locale, scenePhase, etc.). Also Context-like, but for
+// values you don't own.
 @Environment(\.colorScheme) var colorScheme
 ```
+
+> **Common mismap:** Earlier drafts of this guide called `@ObservedObject` "like `useContext`." That's wrong. `useContext` reads a value provided somewhere up the tree without props — that's `@EnvironmentObject` (or `@Environment` for framework values). `@ObservedObject` is for objects passed in explicitly, much closer to a store-as-prop than to context.
 
 See [SwiftUI Guide](../04-ui-development/swiftui-guide.md) for detailed usage.
 
@@ -383,7 +411,7 @@ See [SwiftUI Guide](../04-ui-development/swiftui-guide.md) for detailed usage.
 | `x as string` | `x as! String` (force) or `x as? String` (safe) |
 | Template literals `` `${x}` `` | String interpolation `"\(x)"` |
 | `console.log()` | `print()` |
-| `interface` | `protocol` |
+| `interface` | `protocol` *(starting point only — see footnote)* |
 | `class` | `class` (reference) or `struct` (value) |
 | `enum` | `enum` (much more powerful) |
 | `async/await` | `async/await` (nearly identical) |
@@ -392,8 +420,10 @@ See [SwiftUI Guide](../04-ui-development/swiftui-guide.md) for detailed usage.
 | `[].map(x => ...)` | `[].map { ... }` |
 | `export / import` | `import ModuleName` (module-level, not file-level) |
 
+> **Footnote — `interface` vs `protocol`:** Swift protocols look like TypeScript interfaces at first glance, but they diverge sharply. Protocols can have **associated types** (PATs), which behave more like generic constraints than interface members. They can also be used as **existentials** (`any P`) or **opaque types** (`some P`), and the choice changes the runtime semantics. See the dedicated [Generics, Opaque Types & Existentials](generics-and-protocols-deep.md) chapter before treating "interface = protocol" as 1:1.
+
 ---
 
 **Next:** [Architecture Patterns](../03-architecture/patterns.md) — How web architecture concepts map to iOS.
 
-*Last updated: 2026-04-25*
+*Last updated: 2026-05-04*

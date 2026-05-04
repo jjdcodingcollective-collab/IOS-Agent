@@ -1268,31 +1268,31 @@ Update `extract_jsx_children()` to handle fragment closing tags (`</>`, `</React
 
 ---
 
-### BUILD-16: Author Objective-C Interop Chapter (Addresses GAP-D2) — ⏳ pending
+### BUILD-16: Author Objective-C Interop Chapter (Addresses GAP-D2) — ✅ shipped 2026-05-04
 - **Effort:** Medium (1 chapter, ~400 lines)
 - **Files:** new `docs/02-swift-fundamentals/swift-objc-interop.md`; cross-link from `swift-for-web-devs.md` cheat sheet and `03-architecture/patterns.md`
 - **Approach:** Cover `@objc`, `@objcMembers`, `dynamic`, bridging headers, `Selector` / `#selector`, `NSObject` subclassing, KVC/KVO, framework header consumption, ARC bridging across the boundary. Include a "what to do when you see this in a stack trace" appendix.
 - **Acceptance:** Reader can read an Apple framework header, identify ObjC-isms, and call into / be called from ObjC code without trial-and-error.
 
-### BUILD-17: Strict Concurrency & Sendable Chapter (Addresses GAP-D3) — ⏳ pending
+### BUILD-17: Strict Concurrency & Sendable Chapter (Addresses GAP-D3) — ✅ shipped 2026-05-04
 - **Effort:** Medium (1 chapter, ~350 lines)
 - **Files:** new `docs/02-swift-fundamentals/concurrency-and-sendable.md`; expand mentions in `03-architecture/patterns.md` and `05-networking/api-integration.md`
 - **Approach:** Conceptual model first (data-race-free by construction), then `actor`, `@MainActor`, `Sendable` (auto vs explicit conformance), `nonisolated`, `@preconcurrency`, region-based isolation, common warnings under Swift 6 strict mode. Pair with the converter's emit rules so generated code aligns.
 - **Acceptance:** A reader enables strict concurrency on a generated project, sees zero warnings on green-path output, and can read the diagnostic for any warning that does appear.
 
-### BUILD-18: Generics, Opaque Types & Existentials Chapter (Addresses GAP-D4) — ⏳ pending
+### BUILD-18: Generics, Opaque Types & Existentials Chapter (Addresses GAP-D4) — ✅ shipped 2026-05-04
 - **Effort:** Small-Medium (1 chapter, ~250 lines)
 - **Files:** new `docs/02-swift-fundamentals/generics-and-protocols-deep.md`
 - **Approach:** Generics with `where` clauses, PATs, `some` (opaque) vs `any` (existential), conditional conformance, type erasure (`AnyView`, `AnyPublisher`, `AnyHashable`), why `some View` exists in SwiftUI signatures. Map each concept from TypeScript generics where possible; flag Swift-only ideas explicitly.
 - **Acceptance:** Reader can write `func first<T: Comparable>(in: [T]) -> T?` and explain why `some View` is not the same as `View`.
 
-### BUILD-19: Expand ARC, Capture, and Lifetime Chapter (Addresses GAP-D5) — ⏳ pending
+### BUILD-19: Expand ARC, Capture, and Lifetime Chapter (Addresses GAP-D5) — ✅ shipped 2026-05-04
 - **Effort:** Small (~150 lines new + restructure of pitfalls #6)
 - **Files:** new `docs/02-swift-fundamentals/arc-and-lifetimes.md`; demote `web-dev-gotchas.md#6` to a one-line pointer
 - **Approach:** Reference vs value identity, `weak` vs `unowned`, escaping vs non-escaping closures, capture-list shapes, `Task` retention, Combine subscription lifetime (`AnyCancellable`, `store(in:)`), how Instruments diagnoses leaks.
 - **Acceptance:** Reader can identify which closures need `[weak self]` and explain why structs don't need it.
 
-### BUILD-20: Fix Internal Inconsistencies Across Chapters (Addresses GAP-D6) — ⏳ pending
+### BUILD-20: Fix Internal Inconsistencies Across Chapters (Addresses GAP-D6) — ✅ shipped 2026-05-04
 - **Effort:** Small (mechanical edits)
 - **Files:** `docs/11-pitfalls/web-dev-gotchas.md` (gotcha #3 sample), `docs/05-networking/api-integration.md:22`, `docs/02-swift-fundamentals/swift-for-web-devs.md:362` and cheat-sheet line for `interface → protocol`
 - **Approach:**
@@ -1302,7 +1302,7 @@ Update `extract_jsx_children()` to handle fragment closing tags (`</>`, `</React
   - Add a callout in the optionals section about Implicitly Unwrapped Optionals (`String!`) appearing in Apple APIs.
 - **Acceptance:** Grep across `docs/` finds no `try!` or `as!` in sample code outside an explicit "what NOT to do" block.
 
-### BUILD-21: New Source-Language Chapters — Tier 1 (Kotlin, Java, Python) (Addresses GAP-D1) — ⏳ pending
+### BUILD-21: New Source-Language Chapters — Tier 1 (Kotlin, Java, Python) (Addresses GAP-D1) — ✅ shipped 2026-05-04
 - **Effort:** Large (3 chapters, ~600 lines each)
 - **Files:**
   - new `docs/02-swift-fundamentals/from-kotlin.md`
@@ -1312,7 +1312,7 @@ Update `extract_jsx_children()` to handle fragment closing tags (`</>`, `</React
 - **Priority within tier:** Kotlin first (highest leverage per page — near-twin language), then Java (largest enterprise audience), then Python (largest data/ML audience).
 - **Acceptance:** A Kotlin developer can read `from-kotlin.md` plus the strict-concurrency chapter and convert a small Kotlin file to idiomatic Swift without further help.
 
-### BUILD-22: Persistence (Core Data / SwiftData) Chapter Mapped from ORMs (Addresses GAP-D8) — ⏳ pending
+### BUILD-22: Persistence (Core Data / SwiftData) Chapter Mapped from ORMs (Addresses GAP-D8) — ✅ shipped 2026-05-04
 - **Effort:** Medium (~400 lines)
 - **Files:** new `docs/03-architecture/persistence.md`
 - **Approach:** Map Prisma / Drizzle / ActiveRecord / SQLAlchemy / Hibernate / Room concepts to Core Data and SwiftData. Cover schema definition, migrations, queries (`@FetchRequest`, `@Query`), relationships, performance pitfalls, and CloudKit sync. Include a "when to pick which" decision tree (UserDefaults vs Keychain vs Files vs Core Data vs SwiftData vs SQLite.swift).
@@ -1340,9 +1340,10 @@ These are listed here so they don't drift out of view, but full BUILD-* specs ar
 Based on impact, difficulty, and dependency ordering. **All 15 original BUILD-*
 items shipped 2026-04-25 → 2026-05-04**. The 2026-05-04 docs review surfaced 9
 new gaps (GAP-D1…D9) and added 7 specified BUILD items (BUILD-16…22) plus a
-Tier 2/3/4 backlog (BUILD-23…30). The active roadmap is the GitHub round-trip
-wrapper (see `plans/github-round-trip.md`) **and** Phase E documentation work
-below.
+Tier 2/3/4 backlog (BUILD-23…30). **BUILD-16…22 (Tier 0 + Tier 1) all
+shipped 2026-05-04.** The active roadmap is the GitHub round-trip wrapper
+(see `plans/github-round-trip.md`) **and** the Tier 2/3/4 docs backlog
+(BUILD-23…30) below.
 
 ### Phase A — Foundation (Unblocks Everything Else) — ✅ delivered
 1. ✅ **BUILD-2** — Import dependency graph (enables cross-file type resolution)
@@ -1375,24 +1376,24 @@ below.
 - ⏳ Phase 4 — first-class monorepo discovery (auto-detect `apps/mobile` etc.)
 - ⏳ Phase 5 — hosted service wrapping the CLI (paid product)
 
-### Phase E — Documentation Depth & Source-Language Coverage — ⏳ pending
+### Phase E — Documentation Depth & Source-Language Coverage — ✅ Tier 0 + Tier 1 delivered 2026-05-04
 
-Sequenced for highest reader-value-per-page-written. Tier 0 (correctness) ships
-before any new language chapters so fixes don't get re-introduced into copy
-once the surface area grows.
+Sequenced for highest reader-value-per-page-written. Tier 0 (correctness) shipped
+before any new language chapters so fixes weren't re-introduced into copy
+once the surface area grew.
 
-**Tier 0 — Correctness fixes (ship before adding more languages):**
-1. ⏳ **BUILD-20** — Fix internal inconsistencies (`try!`/`as!` in samples, `@ObservedObject` mapping, IUO callout). Mechanical, low-risk, blocks credibility of every other chapter.
-2. ⏳ **BUILD-17** — Strict concurrency / Sendable / actor-isolation chapter.
-3. ⏳ **BUILD-19** — ARC, capture, and closure-lifetime chapter.
+**Tier 0 — Correctness fixes:**
+1. ✅ **BUILD-20** — Fixed internal inconsistencies (`try!`/`as!` in samples, `@ObservedObject` mapping corrected to `@EnvironmentObject ↔ useContext`, IUO callout added).
+2. ✅ **BUILD-17** — Strict concurrency / Sendable / actor-isolation chapter (`docs/02-swift-fundamentals/concurrency-and-sendable.md`).
+3. ✅ **BUILD-19** — ARC, capture, and closure-lifetime chapter (`docs/02-swift-fundamentals/arc-and-lifetimes.md`).
 
 **Tier 1 — Highest-leverage new content:**
-4. ⏳ **BUILD-16** — Objective-C interop chapter (operational table stakes for real iOS work).
-5. ⏳ **BUILD-18** — Generics, opaque types, and existentials chapter (unlocks honest reading of SwiftUI signatures).
-6. ⏳ **BUILD-21** — Tier 1 source-language chapters: Kotlin → Java → Python (in that order; Kotlin first by leverage).
-7. ⏳ **BUILD-22** — Persistence chapter mapped from ORM concepts.
+4. ✅ **BUILD-16** — Objective-C interop chapter (`docs/02-swift-fundamentals/swift-objc-interop.md`).
+5. ✅ **BUILD-18** — Generics, opaque types, and existentials chapter (`docs/02-swift-fundamentals/generics-and-protocols-deep.md`).
+6. ✅ **BUILD-21** — Tier 1 source-language chapters: Kotlin (`from-kotlin.md`), Java (`from-java.md`), Python (`from-python.md`) — all under `docs/02-swift-fundamentals/`.
+7. ✅ **BUILD-22** — Persistence chapter mapped from ORM concepts (`docs/03-architecture/persistence.md`).
 
-**Tier 2/3/4 — Backlog (BUILD-23…30):** UIKit chapter, C# / Dart / C++ / Rust source-language chapters, deeper JS/TS material, privacy-manifest operational chapter, smaller-audience languages. Specced when Tier 1 ships.
+**Tier 2/3/4 — Backlog (BUILD-23…30):** UIKit chapter, C# / Dart / C++ / Rust source-language chapters, deeper JS/TS material, privacy-manifest operational chapter, smaller-audience languages. Specs to be drafted next.
 
 **Cross-cutting recommendation:** before writing more source-language chapters, lock in the per-language template (variables/types, null model, error model, value-vs-reference, concurrency model, generics & polymorphism, memory model, module/visibility, testing idioms, "5 most surprising things"). Without this, new chapters will drift in depth like the existing ones do.
 
@@ -1494,3 +1495,4 @@ Bug fixes that emerged from this run:
 
 *Generated by iOS Agent Gap Analysis — 2026-04-25*
 *Revised 2026-05-04 — Added dimension 6 (Documentation & Source-Language Coverage), GAP-D1…D9, BUILD-16…22, Tier 2/3/4 backlog (BUILD-23…30), and Phase E roadmap. Source review: `plans/reviews/2026-05-04-language-transposition.md`.*
+*Revised 2026-05-04 (later same day) — Phase E Tier 0 + Tier 1 shipped: BUILD-16, BUILD-17, BUILD-18, BUILD-19, BUILD-20, BUILD-21 (Kotlin/Java/Python), BUILD-22 all marked ✅. Eight new docs files; five new fundamentals chapters under `docs/02-swift-fundamentals/`, one new architecture chapter (`docs/03-architecture/persistence.md`), three correctness fixes to existing chapters.*

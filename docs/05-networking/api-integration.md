@@ -16,16 +16,22 @@ const articles = await response.json();
 
 ```swift
 // Swift
-let url = URL(string: "https://api.myapp.com/articles")!
+guard let url = URL(string: "https://api.myapp.com/articles") else {
+    throw APIError.invalidURL
+}
 let (data, response) = try await URLSession.shared.data(from: url)
 
-let httpResponse = response as! HTTPURLResponse
+guard let httpResponse = response as? HTTPURLResponse else {
+    throw APIError.invalidResponse
+}
 guard httpResponse.statusCode == 200 else {
     throw APIError.badStatus(httpResponse.statusCode)
 }
 
 let articles = try JSONDecoder().decode([Article].self, from: data)
 ```
+
+> **Note:** This guide deliberately avoids `try!` and `as!` in sample code (see [Common Pitfalls #2](../11-pitfalls/web-dev-gotchas.md)). The few `URL(...)!` force-unwraps that remain are clearly-marked compile-time-known literals — never trust user input or remote data the same way.
 
 ### POST with JSON Body
 

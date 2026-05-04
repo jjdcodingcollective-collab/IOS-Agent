@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-04 (revised — added Phase E docs work)
+Last curated: 2026-05-04 (revised — Phase E Tier 0 + Tier 1 shipped)
 
 ## Current State
 
@@ -24,33 +24,40 @@ All docs, plans, and code were committed as `168f7a1` and pushed to
 
 A **2026-05-04 documentation review** of `docs/` against the project's stated
 ambition of "transposing popular coding languages to Swift" surfaced 9 new
-gaps (GAP-D1…D9) — most importantly: source-language scope is JS/TS only, no
+gaps (GAP-D1…D9) — most importantly: source-language scope was JS/TS only, no
 Objective-C interop, strict-concurrency/Sendable underweighted, ARC depth
 underweighted, and a few internal inconsistencies (`try!`/`as!` in samples,
-`@ObservedObject ↔ useContext` mismap). These are now tracked as BUILD-16…22
+`@ObservedObject ↔ useContext` mismap). These were tracked as BUILD-16…22
 plus a Tier 2/3/4 backlog (BUILD-23…30) in `plans/gap-analysis-and-build-guide.md`,
-under a new **Phase E — Documentation Depth & Source-Language Coverage**.
+under **Phase E — Documentation Depth & Source-Language Coverage**.
+
+**Phase E Tier 0 + Tier 1 are now shipped (2026-05-04).** Eight files of
+changes:
+
+- ✅ BUILD-20 — Tier 0 correctness fixes in `docs/11-pitfalls/web-dev-gotchas.md`,
+  `docs/05-networking/api-integration.md`, `docs/02-swift-fundamentals/swift-for-web-devs.md`.
+- ✅ BUILD-17 — `docs/02-swift-fundamentals/concurrency-and-sendable.md` (new).
+- ✅ BUILD-19 — `docs/02-swift-fundamentals/arc-and-lifetimes.md` (new).
+- ✅ BUILD-16 — `docs/02-swift-fundamentals/swift-objc-interop.md` (new).
+- ✅ BUILD-18 — `docs/02-swift-fundamentals/generics-and-protocols-deep.md` (new).
+- ✅ BUILD-21 — `from-kotlin.md`, `from-java.md`, `from-python.md` (new, all under `docs/02-swift-fundamentals/`).
+- ✅ BUILD-22 — `docs/03-architecture/persistence.md` (new).
+
 Source review: `plans/reviews/2026-05-04-language-transposition.md`.
 
 ## What's Next
 
-Two parallel tracks:
+Two tracks remain:
 
 **Wrapper Phase 3 — push branch from the wrapper.** The `convert-from-github`
 command currently clones, converts, and commits locally but does not push.
 Phase 3 wires `git push origin <branch>` and optionally `gh pr create` inside
 `wrapper/git_ops.py`.
 
-**Phase E — Tier 0 docs correctness fixes** (sequenced before any new language
-chapters):
-- BUILD-20 (mechanical): fix `try!`/`as!` in pitfalls #3 + api-integration
-  samples; correct `@ObservedObject ↔ useContext` mapping; add IUO callout.
-- BUILD-17: strict-concurrency / Sendable / actor-isolation chapter.
-- BUILD-19: ARC, capture, lifetime chapter (expanded from pitfalls #6).
-
-Tier 1 follows: BUILD-16 (Objective-C interop), BUILD-18 (generics/opaque/
-existentials), BUILD-21 (Kotlin → Java → Python source-language chapters),
-BUILD-22 (persistence mapped from ORMs).
+**Phase E Tier 2/3/4 backlog** — BUILD-23…30 are enumerated but not yet specced
+in detail. Highest-value among them: BUILD-23 (UIKit chapter), BUILD-26 (deepen
+JS/TS chapter — Combine, Codable customization, KeyPath, property wrappers),
+BUILD-29 (privacy manifest / ATT / BGTaskScheduler operational chapter).
 
 ## Relevant Knowledge Refs
 
