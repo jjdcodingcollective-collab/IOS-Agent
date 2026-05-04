@@ -22,7 +22,10 @@ Last curated: 2026-05-04
   roadmap. **Phase E Tier 0 + Tier 1 (BUILD-16…22) shipped 2026-05-04.**
   **BUILD-26 + BUILD-29 also shipped 2026-05-04** out of the Tier 2/3 backlog.
 - `plans/github-round-trip.md` — design spec for the wrapper's GitHub round-trip
-  (Phases 1–5). Phases 1 and 2 delivered.
+  (Phases 1–5). Phases 1, 2, and 3 delivered. Phase 3 added `--push`/`--no-push`
+  on `convert-from-github`, `push_branch()` + `PushInfo` in `wrapper/git_ops.py`,
+  protected-branch refusal at push time, and a read-only fallback when
+  credentials are missing.
 - `plans/agent-interaction-design.md` — three-surface model (CLI / wrapper /
   Claude Code) and long-term product vision.
 - `plans/ios-code-converter.md` — original converter design (historical).
@@ -57,11 +60,13 @@ Phase E Tier 2/3 partial (2026-05-04, BUILD-26 + BUILD-29):
 
 ```
 python -m wrapper convert <path>             # local only (Phase 1)
-python -m wrapper convert-from-github <url>  # clone + convert + commit (Phase 2)
+python -m wrapper convert-from-github <url>  # clone + convert + commit + push (Phases 2/3)
   --branch <name>       override ios-conversion default
   --app-name <name>     override derived app name
   --source-subdir <dir> scope to monorepo subdirectory
   --no-validate         skip structural validation
-  --yes                 skip confirmation prompt
+  --yes                 skip confirmation prompt; implies --push
   --reuse-clone         skip re-cloning if workspace exists
+  --push                push the conversion branch to origin (Phase 3)
+  --no-push             commit locally only; do not push (Phase 3)
 ```

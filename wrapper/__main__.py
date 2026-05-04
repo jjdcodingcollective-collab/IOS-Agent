@@ -6,8 +6,10 @@ Wrapper entry point.
 
 Phase 1: `convert <local-path>` runs the CLI against a local source dir.
 Phase 2: `convert-from-github <url>` clones the repo, converts, and creates
-a local `ios-conversion` branch with the generated Swift project. No push
-yet — Phase 3 will add that.
+a local conversion branch with the generated Swift project.
+Phase 3: `convert-from-github <url> --push` (or interactive prompt) pushes
+that branch to origin. The local commit is always created first so a
+push failure is never destructive.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from .git_ops import (
     NEEDS_REVIEW_PREFIX,
     clone_repo,
     commit_conversion,
+    push_branch,
 )
 from .orchestrator import run_conversion
 from .triage import format_triage
@@ -80,6 +83,10 @@ def cmd_convert(args: argparse.Namespace) -> int:
 def cmd_convert_from_github(args: argparse.Namespace) -> int:
     """Clone a GitHub repo, convert it, and commit the output to a local branch."""
     repo_url = args.repo_url
+    # --yes implies --push (auto-yes on every prompt), unless the user
+    # explicitly asked for --no-push.
+    if args.yes and args.push is None:
+        args.push = True
     workdir = Path(args.workdir).resolve() if args.workdir else (
         Path.cwd() / "workspace" / "github-clones"
     )
@@ -103,7 +110,13 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
     print(f"App name:   {args.app_name}")
     print(f"Branch:     {args.branch}")
     print(f"Validate:   {'no' if args.no_validate else 'yes'}")
-    print(f"Push:       no (Phase 2 — local commit only)")
+    if args.push is True:
+        push_banner = "yes (--push)"
+    elif args.push is False:
+        push_banner = "no (--no-push)"
+    else:
+        push_banner = "ask after commit"
+    print(f"Push:       {push_banner}")
     print()
 
     if not _confirm("Clone, convert, and commit to local branch?", args.yes):
@@ -189,7 +202,52 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
     print(f"  git log --oneline {commit.branch}")
     print(f"  git diff main..{commit.branch}")
 
-    return 0
+    # Phase 3: push. Three states for args.push:
+    #   True  → push without asking (--push, also implied by --yes)
+    #   False → never push (--no-push)
+    #   None  → prompt the user (default)
+    if args.push is False:
+        print()
+        print("Skipping push (--no-push). Run `git push -u origin "
+              f"{commit.branch}` from {clone_dest} to publish.")
+        return 0
+
+    if args.push is None:
+        print()
+        if not _confirm(
+            f"Push branch '{commit.branch}' to origin?",
+            assume_yes=False,
+        ):
+            print(f"Skipping push. Run `git push -u origin {commit.branch}` "
+                  f"from {clone_dest} to publish.")
+            return 0
+
+    print()
+    print(f"Pushing {commit.branch} to origin...")
+    try:
+        push = push_branch(clone_dest, commit.branch)
+    except GitError as e:
+        # Hard refusal (e.g. protected branch). Local commit stays put.
+        print(f"error: {e}", file=sys.stderr)
+        print(f"Local branch is intact at {clone_dest}.", file=sys.stderr)
+        return 1
+
+    if push.pushed:
+        print(f"Pushed: {push.remote}/{push.branch}")
+        if push.remote_url:
+            print(f"Remote: {push.remote_url}")
+        return 0
+
+    # Push failed — read-only fallback per the plan. Don't fail the run;
+    # the user can fix credentials and retry the push themselves.
+    print(f"Push failed — local commit is intact.", file=sys.stderr)
+    print(f"  remote: {push.remote}", file=sys.stderr)
+    if push.remote_url:
+        print(f"  url:    {push.remote_url}", file=sys.stderr)
+    print(f"  error:  {push.error}", file=sys.stderr)
+    print(f"Retry with: cd {clone_dest} && git push -u origin {commit.branch}",
+          file=sys.stderr)
+    return 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -275,7 +333,23 @@ def build_parser() -> argparse.ArgumentParser:
     gh.add_argument(
         "--yes", "-y",
         action="store_true",
-        help="Skip confirmation prompts.",
+        help="Skip confirmation prompts. Implies --push unless --no-push is set.",
+    )
+    push_group = gh.add_mutually_exclusive_group()
+    push_group.add_argument(
+        "--push",
+        dest="push",
+        action="store_const",
+        const=True,
+        default=None,
+        help="Push the conversion branch to origin without prompting.",
+    )
+    push_group.add_argument(
+        "--no-push",
+        dest="push",
+        action="store_const",
+        const=False,
+        help="Commit locally only; do not push.",
     )
     gh.set_defaults(func=cmd_convert_from_github)
 

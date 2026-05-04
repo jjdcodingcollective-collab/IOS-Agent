@@ -23,6 +23,10 @@ python -m wrapper convert-from-github https://github.com/you/your-app --app-name
 # Monorepo? scope to a subdirectory:
 python -m wrapper convert-from-github https://github.com/you/your-app \
     --source-subdir apps/mobile --app-name MyApp
+# Push the branch to origin (default is to prompt after the local commit):
+python -m wrapper convert-from-github https://github.com/you/your-app --push
+# Or commit locally only:
+python -m wrapper convert-from-github https://github.com/you/your-app --no-push
 ```
 
 The converter writes a Swift project (`Package.swift`, `project.yml` for [xcodegen](https://github.com/yonaskolb/XcodeGen), `Sources/`, `Tests/`) plus five reports under `.ios-conversion/` on the conversion branch. Runs that fail validation or score below 60% confidence land on a `Requires-more-review/` prefixed branch so reviewers can spot them at a glance.
@@ -33,7 +37,7 @@ Pipeline:
 TS source → analyzer → reviewer → rewriter → assembler → validator → reports + Swift project
 ```
 
-Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md`); wrapper is at Phase 2 (clone + convert + local commit; push lands in Phase 3).
+Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md`); wrapper is at Phase 3 (clone + convert + local commit + opt-in push). Push refuses protected branches (`main`/`master`/`develop`/`trunk`/`release`), never force-pushes, and falls back read-only if credentials are missing.
 
 ---
 
@@ -131,6 +135,8 @@ The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expandi
 ---
 
 ## Last Updated
+
+**2026-05-04** *(Wrapper Phase 3 shipped — opt-in push)* — `convert-from-github` gains `--push` / `--no-push` flags (default: prompt after the local commit lands). `wrapper/git_ops.py` adds `push_branch()` + `PushInfo`: plain `git push --set-upstream`, never `--force`, hard refusal on the protected-branch list, and a read-only fallback when credentials are missing or the push otherwise fails. `--yes` implies `--push` unless overridden. Phase 3 marked ✅ in `plans/github-round-trip.md`; the previously-open re-run-on-stale-base question is resolved as "leave alone."
 
 **2026-05-04** *(BUILD-26 + BUILD-29 shipped from Tier 2/3 backlog)* — Four new chapters: `combine-and-async-streams.md`, `codable-deep.md`, `swift-toolkit-for-web-devs.md` (under `02-swift-fundamentals/`), and `app-store-operations.md` (under `09-deployment/`). The intro `swift-for-web-devs.md` got a "Going Deeper" pointer block linking the eight companion chapters. Cross-links added from `security-guide.md` and `deployment-guide.md` into the new operations chapter. BUILD-26 and BUILD-29 marked ✅ in the gap-analysis build guide. No converter code changes.
 

@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-04 (revised — Phase E Tier 0 + Tier 1 shipped; BUILD-26 + BUILD-29 shipped from Tier 2/3)
+Last curated: 2026-05-04 (revised — Wrapper Phase 3 shipped: opt-in push)
 
 ## Current State
 
@@ -9,11 +9,13 @@ fully shipped. All 15 original BUILD-* items from the 2026-04-25 gap analysis
 are done.
 
 The **wrapper** (`python -m wrapper`) layer that orchestrates the CLI, clones
-GitHub repos, and creates a conversion branch is operational through Phase 2:
+GitHub repos, and creates a conversion branch is operational through Phase 3:
 
 - Phase 1 — local convert: ✅
 - Phase 2 — clone + convert + local commit on a `Requires-more-review/` branch: ✅
-- Phase 3 — push to GitHub: ⏳ next
+- Phase 3 — opt-in push to origin via `--push` / `--no-push` (default prompts): ✅
+- Phase 4 — conversational polish: ⏳ next
+- Phase 5 — `--open-pr` via `gh pr create`: ⏳ later
 
 Real-world validation passed against `the-survival-bible` monorepo
 (`apps/mobile`, 42 files, **50/50 structural-validation pass**) after fixing
@@ -57,10 +59,11 @@ Source review: `plans/reviews/2026-05-04-language-transposition.md`.
 
 Two tracks remain:
 
-**Wrapper Phase 3 — push branch from the wrapper.** The `convert-from-github`
-command currently clones, converts, and commits locally but does not push.
-Phase 3 wires `git push origin <branch>` and optionally `gh pr create` inside
-`wrapper/git_ops.py`.
+**Wrapper Phase 4/5.** Phase 4 is the conversational polish layer
+(pre-flight repo metadata via the GitHub API, post-flight PR-ready
+next steps, educational mode for first-time users). Phase 5 wires
+`--open-pr` via `gh pr create`, off by default. Both build on the
+Phase 3 push plumbing already in place.
 
 **Phase E remaining Tier 2/3/4 backlog:** BUILD-23 (UIKit chapter),
 BUILD-24 (C# / Xamarin/MAUI sunset audience), BUILD-25 (Dart/Flutter),

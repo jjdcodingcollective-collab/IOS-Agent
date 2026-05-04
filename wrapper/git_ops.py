@@ -1,18 +1,21 @@
 """
-Git operations — clone, branch, and commit conversion output.
+Git operations — clone, branch, commit, and push conversion output.
 
-Phase 2 scope: everything up to but not including push. The wrapper
-clones the user's repo to a working directory, runs the converter,
-then creates/updates an `ios-conversion` branch with the generated
-Swift project. The user can inspect the branch locally before any
-push happens.
+Phase 3 scope: push the conversion branch to origin once it's been
+committed locally. The wrapper still clones the user's repo to a
+working directory, runs the converter, and commits onto a conversion
+branch first; push is gated on explicit user opt-in.
 
 Safety rails (per plans/github-round-trip.md):
-- Never force-push (we don't push at all in Phase 2).
-- Never operate on `main` / `master` as the conversion branch.
+- Never force-push (push uses plain `git push`, no `--force`/`-f`).
+- Never operate on `main` / `master` / `develop` / `trunk` / `release`
+  as the conversion branch — refused at branch-creation AND push time.
 - Branch name is validated against `git check-ref-format`.
 - Re-runs are fresh commits with `rev N`, never `--amend` and never
   `git reset --hard`.
+- Read-only fallback: if push fails (missing credentials, network),
+  the local commit stays put and the user gets the branch path so
+  they can push manually.
 """
 
 from __future__ import annotations
@@ -52,6 +55,16 @@ class CommitInfo:
     sha: str
     message: str
     needs_review: bool
+
+
+@dataclass
+class PushInfo:
+    """Result of pushing a conversion branch to a remote."""
+    branch: str
+    remote: str
+    remote_url: str | None
+    pushed: bool
+    error: str | None
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +188,69 @@ def commit_conversion(
     )
 
 
+def push_branch(
+    repo_path: str | Path,
+    branch: str,
+    remote: str = "origin",
+) -> PushInfo:
+    """Push `branch` to `remote`. Plain push only — never `--force`.
+
+    Safety rails:
+      - Refuses to push protected branches (`main`/`master`/...). The
+        prefixed `Requires-more-review/<branch>` form is allowed because
+        the prefix means the head ref no longer matches a protected name.
+      - On any push failure (missing credentials, network, non-fast-forward
+        rejection from the remote) we capture the error and return a
+        PushInfo with `pushed=False` rather than raising. The local commit
+        remains intact so the user can retry manually — that's the
+        read-only fallback called out in the plan.
+    """
+    repo = Path(repo_path).resolve()
+    _assert_repo(repo)
+
+    if branch in PROTECTED_BRANCHES:
+        raise GitError(
+            f"refusing to push to protected branch '{branch}'"
+        )
+
+    if not _branch_exists(repo, branch):
+        raise GitError(f"branch '{branch}' does not exist in {repo}")
+
+    remote_url = _remote_url(repo, remote)
+    if remote_url is None:
+        return PushInfo(
+            branch=branch,
+            remote=remote,
+            remote_url=None,
+            pushed=False,
+            error=f"remote '{remote}' is not configured in {repo}",
+        )
+
+    proc = subprocess.run(
+        ["git", "push", "--set-upstream", remote, branch],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return PushInfo(
+            branch=branch,
+            remote=remote,
+            remote_url=remote_url,
+            pushed=False,
+            error=(proc.stderr.strip() or proc.stdout.strip()
+                   or f"git push exited {proc.returncode}"),
+        )
+
+    return PushInfo(
+        branch=branch,
+        remote=remote,
+        remote_url=remote_url,
+        pushed=True,
+        error=None,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Internals
 # ---------------------------------------------------------------------------
@@ -246,6 +322,20 @@ def _detect_default_branch(repo: Path) -> str:
 
     # Last resort: whatever's checked out right now.
     return _current_branch(repo)
+
+
+def _remote_url(repo: Path, remote: str) -> str | None:
+    """Return the URL configured for `remote`, or None if it isn't configured."""
+    proc = subprocess.run(
+        ["git", "remote", "get-url", remote],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return None
+    url = proc.stdout.strip()
+    return url or None
 
 
 def _branch_exists(repo: Path, name: str) -> bool:
