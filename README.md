@@ -52,6 +52,8 @@ Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md
 - [Swift for Kotlin Developers](docs/02-swift-fundamentals/from-kotlin.md) — Near-twin language transposition (coroutines, sealed classes, data classes)
 - [Swift for Java Developers](docs/02-swift-fundamentals/from-java.md) — POJOs → structs, checked exceptions → typed throws, GC → ARC
 - [Swift for Python Developers](docs/02-swift-fundamentals/from-python.md) — Static typing, no truthiness, no GIL, optionals as types
+- [Swift for C# Developers](docs/02-swift-fundamentals/from-csharp.md) — LINQ → sequence ops, GC → ARC, Xamarin/MAUI sunset migration
+- [Swift for Dart / Flutter Developers](docs/02-swift-fundamentals/from-dart-flutter.md) — Widgets → Views, StatefulWidget → @State, isolates → actors
 - [Strict Concurrency & Sendable](docs/02-swift-fundamentals/concurrency-and-sendable.md) — Actors, `@MainActor`, `Sendable`, Swift 6 strict mode
 - [ARC, Captures & Lifetimes](docs/02-swift-fundamentals/arc-and-lifetimes.md) — Reference counting, retain cycles, `[weak self]`, `Task` retention
 - [Generics, Opaque Types & Existentials](docs/02-swift-fundamentals/generics-and-protocols-deep.md) — `some` vs `any`, PATs, type erasure
@@ -123,19 +125,21 @@ This is a living reference. To contribute:
 
 ## Scope (Current)
 
-The `docs/` guide now covers **JavaScript / TypeScript, Kotlin, Java, and Python → Swift** developers, plus operational depth on Objective-C interop, strict concurrency, ARC, generics, and persistence.
+The `docs/` guide now covers **JavaScript / TypeScript, Kotlin, Java, Python, C#, and Dart/Flutter → Swift** developers, plus operational depth on Objective-C interop, strict concurrency, ARC, generics, persistence, and UIKit (for non-greenfield iOS codebases).
 
 **Phase E Tier 0 + Tier 1 shipped 2026-05-04** (BUILD-16 through BUILD-22): seven new chapters, three correctness fixes, and a per-language template established for future source-language additions.
 
 **BUILD-26 + BUILD-29 also shipped 2026-05-04** out of the Tier 2/3 backlog (highest reader-leverage among the non-language items): three new companion chapters under `02-swift-fundamentals/` deepening the JS/TS material (Combine, Codable customization, and the KeyPaths/property-wrappers/result-builders/IUO toolkit), and a dedicated `09-deployment/app-store-operations.md` chapter consolidating privacy manifest, ATT, BGTaskScheduler, push, App Groups, and entitlements as a pre-submission checklist.
 
-Remaining backlog under Phase E: BUILD-24 (C# / Xamarin/MAUI sunset), BUILD-25 (Dart/Flutter), BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). See `plans/gap-analysis-and-build-guide.md` for full specs and `plans/phase-e-tier-2-3-remaining.md` for the sequencing plan.
+Remaining backlog under Phase E: BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). See `plans/gap-analysis-and-build-guide.md` for full specs and `plans/phase-e-tier-2-3-remaining.md` for the sequencing plan.
 
 The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expanding source-language coverage in the docs ahead of the converter is intentional — the docs are the cheaper experiment.
 
 ---
 
 ## Last Updated
+
+**2026-05-04** *(BUILD-24 + BUILD-25 shipped — C# and Dart/Flutter chapters)* — Two new source-language chapters: `docs/02-swift-fundamentals/from-csharp.md` (LINQ → sequence ops, GC → ARC, MVVM with `@Observable`, Xamarin/MAUI sunset migration plan) and `docs/02-swift-fundamentals/from-dart-flutter.md` (widgets → views, `StatefulWidget` → `@State`, `ChangeNotifier` → `@Observable`, isolates → actors, layout & rebuild cost-model contrast). Both follow the established per-language template and cross-link to the deep chapters. README TOC, ACTIVE, REFERENCES, and gap-analysis build guide updated; remaining backlog narrowed to BUILD-27/28/30.
 
 **2026-05-04** *(BUILD-23 shipped — UIKit chapter)* — New chapter `docs/04-ui-development/uikit-guide.md` covering view controllers + lifecycle, Auto Layout (the constraint mental model + `translatesAutoresizingMaskIntoConstraints` trap), Storyboards/XIBs/programmatic tradeoffs, modern `UICollectionView` with diffable data sources, navigation patterns, gestures + responder chain, and bidirectional bridging to SwiftUI via `UIHostingController` / `UIViewRepresentable`. README TOC updated; BUILD-23 marked ✅ in the gap-analysis build guide. No converter or wrapper code changes.
 

@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-04 (revised — BUILD-23 UIKit chapter shipped)
+Last curated: 2026-05-04 (revised — BUILD-23/24/25 shipped: UIKit, C#, Dart/Flutter)
 
 ## Current State
 
@@ -65,13 +65,10 @@ next steps, educational mode for first-time users). Phase 5 wires
 `--open-pr` via `gh pr create`, off by default. Both build on the
 Phase 3 push plumbing already in place.
 
-**Phase E remaining Tier 2/3/4 backlog:** BUILD-24 (C# / Xamarin/MAUI
-sunset audience), BUILD-25 (Dart/Flutter), BUILD-27 (C++ interop),
-BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). BUILD-23 (UIKit) shipped
-2026-05-04 as `docs/04-ui-development/uikit-guide.md`. Sequencing and
-acceptance criteria for the remainder live in
-`plans/phase-e-tier-2-3-remaining.md` — three batched commits
-(BUILD-24+25, then BUILD-27+28+30).
+**Phase E remaining Tier 2/3/4 backlog:** BUILD-27 (C++ interop),
+BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). BUILD-23/24/25 shipped
+2026-05-04 (UIKit, C#, Dart/Flutter). The final batch (BUILD-27 + 28 +
+30) is the niche-tail commit per `plans/phase-e-tier-2-3-remaining.md`.
 
 ## Relevant Knowledge Refs
 
