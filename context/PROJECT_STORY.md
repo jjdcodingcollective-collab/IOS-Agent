@@ -1,6 +1,6 @@
 # Project Story
 
-Last curated: 2026-05-04
+Last curated: 2026-05-04 (Phase E complete)
 
 ## Narrative
 
@@ -51,3 +51,21 @@ new Phase E in the build guide, sequenced so correctness fixes ship before
 any new source-language chapters. The converter scope is intentionally
 unchanged — docs first, converter later, because docs are cheaper to
 experiment with.
+
+**Phase E shipped end-to-end on 2026-05-04** in seven commits. Tier 0
+correctness fixes (BUILD-20) plus Tier 1 chapters on ObjC interop, strict
+concurrency, ARC, generics, persistence, and Kotlin/Java/Python landed
+first. BUILD-26 (deeper JS/TS) and BUILD-29 (App Store operations) followed.
+The Tier 2/3/4 niche tail closed in three reviewable commits: BUILD-23
+(UIKit), BUILD-24/25 (C#, Dart/Flutter), and BUILD-27/28/30 (C++ interop,
+Rust FFI, Go/Ruby/PHP). The `docs/` guide now spans **JavaScript/TypeScript,
+Kotlin, Java, Python, C#, Dart/Flutter, and Go/Ruby/PHP** as source
+languages, plus operational depth on ObjC, C++, and Rust interop, UIKit
+for non-greenfield codebases, and an App Store operations checklist.
+
+With Phase E complete, the active roadmap narrows back to a single track:
+**wrapper Phase 4 (conversational polish) and Phase 5 (`--open-pr` via
+`gh pr create`)** — both build on the Phase 3 push plumbing already in
+place. Brand alignment is now resolved in favour of the broad scope; the
+README "Scope" section reflects the wider language coverage and the
+remaining-backlog line was replaced with a "Phase E complete" callout.
