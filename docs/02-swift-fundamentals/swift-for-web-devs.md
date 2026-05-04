@@ -393,7 +393,21 @@ SwiftUI uses property wrappers extensively for state management. No direct JS eq
 
 > **Common mismap:** Earlier drafts of this guide called `@ObservedObject` "like `useContext`." That's wrong. `useContext` reads a value provided somewhere up the tree without props — that's `@EnvironmentObject` (or `@Environment` for framework values). `@ObservedObject` is for objects passed in explicitly, much closer to a store-as-prop than to context.
 
-See [SwiftUI Guide](../04-ui-development/swiftui-guide.md) for detailed usage.
+See [SwiftUI Guide](../04-ui-development/swiftui-guide.md) for detailed usage. To **author** your own property wrappers (and to understand the projected-value `$` syntax behind `@Published`/`@State`), see [The Swift Toolkit](swift-toolkit-for-web-devs.md).
+
+---
+
+## Going Deeper (companion chapters)
+
+This intro chapter is a thin layer. Five companion chapters cover the depth a JS/TS reader will actually need:
+
+- **[Combine & AsyncStream](combine-and-async-streams.md)** — Combine for RxJS readers; `@Published`, `AnyPublisher`, `AnyCancellable`; when to pick AsyncSequence; `Observable` macro.
+- **[Codable Customization](codable-deep.md)** — beyond auto-synthesis: `CodingKeys`, dates, polymorphism, lossy arrays, property-wrapper-based decoders.
+- **[The Swift Toolkit](swift-toolkit-for-web-devs.md)** — KeyPaths, authoring property wrappers, result builders (the `@ViewBuilder` mechanism), Implicitly Unwrapped Optionals.
+- **[Strict Concurrency & Sendable](concurrency-and-sendable.md)** — actors, `@MainActor`, `Sendable`, the Swift 6 strict-mode warnings.
+- **[ARC, Captures & Lifetimes](arc-and-lifetimes.md)** — refcount-without-cycle-collector, `[weak self]`, `Task` retention.
+- **[Generics, Opaque Types & Existentials](generics-and-protocols-deep.md)** — `some P` vs `any P`, PATs, type erasure (`AnyView`/`AnyPublisher`).
+- **[Objective-C Interop](swift-objc-interop.md)** — reading framework headers, `@objc`, `#selector`, KVO.
 
 ---
 

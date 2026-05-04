@@ -52,6 +52,9 @@ Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md
 - [ARC, Captures & Lifetimes](docs/02-swift-fundamentals/arc-and-lifetimes.md) — Reference counting, retain cycles, `[weak self]`, `Task` retention
 - [Generics, Opaque Types & Existentials](docs/02-swift-fundamentals/generics-and-protocols-deep.md) — `some` vs `any`, PATs, type erasure
 - [Objective-C Interop](docs/02-swift-fundamentals/swift-objc-interop.md) — `@objc`, bridging headers, `#selector`, KVO, framework header reading
+- [Combine & AsyncStream](docs/02-swift-fundamentals/combine-and-async-streams.md) — Combine for RxJS readers, AsyncSequence, when to pick which
+- [Codable Customization](docs/02-swift-fundamentals/codable-deep.md) — CodingKeys, dates, polymorphism, lossy arrays, property-wrapper decoders
+- [The Swift Toolkit](docs/02-swift-fundamentals/swift-toolkit-for-web-devs.md) — KeyPaths, property-wrapper authoring, result builders, IUOs
 
 ### Architecture
 - [Architecture Patterns](docs/03-architecture/patterns.md) — Translating web architecture to iOS (MVC, MVVM, state management)
@@ -74,6 +77,7 @@ Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md
 
 ### Deployment & Distribution
 - [Deployment & Distribution](docs/09-deployment/deployment-guide.md) — TestFlight, App Store Connect, CI/CD (mapped from Vercel workflows)
+- [App Store Operations](docs/09-deployment/app-store-operations.md) — Privacy manifest, ATT, IDFA, BGTaskScheduler, push, App Groups, entitlements, pre-submission checklist
 
 ### Maintenance
 - [Maintenance & Dependencies](docs/10-maintenance/maintenance-guide.md) — Swift Package Manager, versioning, OS compatibility
@@ -118,13 +122,17 @@ The `docs/` guide now covers **JavaScript / TypeScript, Kotlin, Java, and Python
 
 **Phase E Tier 0 + Tier 1 shipped 2026-05-04** (BUILD-16 through BUILD-22): seven new chapters, three correctness fixes, and a per-language template established for future source-language additions.
 
-Remaining backlog under Phase E (BUILD-23…30): UIKit chapter, additional source-language chapters (C#, Dart/Flutter, C++, Rust, Go, Ruby, PHP), deepening of the JS/TS material, and a dedicated privacy-manifest / ATT / BGTaskScheduler operational chapter. See `plans/gap-analysis-and-build-guide.md` for full specs.
+**BUILD-26 + BUILD-29 also shipped 2026-05-04** out of the Tier 2/3 backlog (highest reader-leverage among the non-language items): three new companion chapters under `02-swift-fundamentals/` deepening the JS/TS material (Combine, Codable customization, and the KeyPaths/property-wrappers/result-builders/IUO toolkit), and a dedicated `09-deployment/app-store-operations.md` chapter consolidating privacy manifest, ATT, BGTaskScheduler, push, App Groups, and entitlements as a pre-submission checklist.
+
+Remaining backlog under Phase E: BUILD-23 (UIKit), BUILD-24 (C# / Xamarin/MAUI sunset), BUILD-25 (Dart/Flutter), BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). See `plans/gap-analysis-and-build-guide.md` for full specs.
 
 The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expanding source-language coverage in the docs ahead of the converter is intentional — the docs are the cheaper experiment.
 
 ---
 
 ## Last Updated
+
+**2026-05-04** *(BUILD-26 + BUILD-29 shipped from Tier 2/3 backlog)* — Four new chapters: `combine-and-async-streams.md`, `codable-deep.md`, `swift-toolkit-for-web-devs.md` (under `02-swift-fundamentals/`), and `app-store-operations.md` (under `09-deployment/`). The intro `swift-for-web-devs.md` got a "Going Deeper" pointer block linking the eight companion chapters. Cross-links added from `security-guide.md` and `deployment-guide.md` into the new operations chapter. BUILD-26 and BUILD-29 marked ✅ in the gap-analysis build guide. No converter code changes.
 
 **2026-05-04** *(Phase E Tier 0 + Tier 1 shipped, evening)* — Authored seven new chapters: `swift-objc-interop.md`, `concurrency-and-sendable.md`, `arc-and-lifetimes.md`, `generics-and-protocols-deep.md`, `from-kotlin.md`, `from-java.md`, `from-python.md`, plus `03-architecture/persistence.md`. Fixed internal inconsistencies in `web-dev-gotchas.md`, `api-integration.md`, and `swift-for-web-devs.md` (eliminated `try!`/`as!` from happy-path samples; corrected `@EnvironmentObject ↔ useContext` mapping; added IUO callout). BUILD-16…22 marked ✅ in the gap-analysis build guide. No converter code changes.
 

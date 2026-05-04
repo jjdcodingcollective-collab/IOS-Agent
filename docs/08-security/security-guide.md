@@ -203,6 +203,8 @@ Every permission requires a human-readable description. Apple rejects apps with 
 
 ## Privacy Manifest (Required Since 2024)
 
+> **Operational reference:** [App Store Operations](../09-deployment/app-store-operations.md) covers the full privacy-manifest workflow (required-reason API categories, reason codes, App Store Connect survey reconciliation, third-party SDK aggregation). This section is the quick orientation; the operational chapter is what you reach for when preparing a submission.
+
 Apple now requires apps to declare what data they collect and what APIs they use. This is a `PrivacyInfo.xcprivacy` file in your app bundle.
 
 ```xml

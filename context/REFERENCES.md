@@ -20,6 +20,7 @@ Last curated: 2026-05-04
   2026-05-04 to add dimension 6 (Documentation & Source-Language Coverage),
   GAP-D1…D9, BUILD-16…22, Tier 2/3/4 backlog (BUILD-23…30), and Phase E
   roadmap. **Phase E Tier 0 + Tier 1 (BUILD-16…22) shipped 2026-05-04.**
+  **BUILD-26 + BUILD-29 also shipped 2026-05-04** out of the Tier 2/3 backlog.
 - `plans/github-round-trip.md` — design spec for the wrapper's GitHub round-trip
   (Phases 1–5). Phases 1 and 2 delivered.
 - `plans/agent-interaction-design.md` — three-surface model (CLI / wrapper /
@@ -36,7 +37,7 @@ Last curated: 2026-05-04
 
 ### Documentation Chapters (Phase E)
 
-New (2026-05-04):
+Phase E Tier 0 + Tier 1 (2026-05-04, BUILD-16…22):
 - `docs/02-swift-fundamentals/concurrency-and-sendable.md` — strict concurrency, actors, `@MainActor`, `Sendable`.
 - `docs/02-swift-fundamentals/arc-and-lifetimes.md` — ARC, retain cycles, `weak`/`unowned`, capture lists, `Task` retention.
 - `docs/02-swift-fundamentals/swift-objc-interop.md` — `@objc`, bridging, `#selector`, KVO, NSError, framework header reading.
@@ -45,6 +46,12 @@ New (2026-05-04):
 - `docs/02-swift-fundamentals/from-java.md` — Java → Swift transposition.
 - `docs/02-swift-fundamentals/from-python.md` — Python → Swift transposition.
 - `docs/03-architecture/persistence.md` — UserDefaults / Keychain / FileManager / SwiftData / Core Data / CloudKit; ORM mappings (Prisma / Drizzle / ActiveRecord / SQLAlchemy / Hibernate / Room).
+
+Phase E Tier 2/3 partial (2026-05-04, BUILD-26 + BUILD-29):
+- `docs/02-swift-fundamentals/combine-and-async-streams.md` — Combine for RxJS readers, AsyncSequence, `@Published`/`AnyCancellable`/`AnyPublisher`, `Observable` macro decision table.
+- `docs/02-swift-fundamentals/codable-deep.md` — CodingKeys, dates, polymorphism, lossy arrays, property-wrapper-based decoders, JSON-library mappings.
+- `docs/02-swift-fundamentals/swift-toolkit-for-web-devs.md` — KeyPaths, property-wrapper authoring, result builders / `@ViewBuilder`, IUOs.
+- `docs/09-deployment/app-store-operations.md` — privacy manifest, ATT, IDFA, BGTaskScheduler, push, App Groups, entitlements, pre-submission checklist.
 
 ### Wrapper Command Surface
 

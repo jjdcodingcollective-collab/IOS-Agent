@@ -1320,18 +1320,16 @@ Update `extract_jsx_children()` to handle fragment closing tags (`</>`, `</React
 
 ---
 
-### Tier 2/3 backlog (enumerated, not yet specified) — ⏳ pending
+### Tier 2/3 backlog — partial delivery 2026-05-04
 
-These are listed here so they don't drift out of view, but full BUILD-* specs are deferred until Tier 1 ships.
-
-- **BUILD-23 (Tier 2):** UIKit chapter mapped from imperative-UI traditions (Android Views, WPF/WinForms, ObjC UIKit history). Many production iOS jobs require UIKit competence; SwiftUI-only is unrealistic.
-- **BUILD-24 (Tier 2):** C# → Swift chapter (Xamarin/MAUI sunset, Unity gameplay devs).
-- **BUILD-25 (Tier 2):** Dart/Flutter → Swift chapter (cross-platform replatforming).
-- **BUILD-26 (Tier 2):** Deepen JS/TS chapter — Combine, Codable customization, KeyPath, property-wrapper authoring, result builders, IUO.
-- **BUILD-27 (Tier 3):** C++/Objective-C++ interop (Swift 5.9+ first-class C++ interop, game/SDK devs).
-- **BUILD-28 (Tier 3):** Rust → Swift FFI (cbindgen, Swift package wrapping a Rust static lib).
-- **BUILD-29 (Tier 3):** Privacy manifest, ATT, IDFA, BGTaskScheduler, push, App Groups, entitlements — elevate from buried sections to a dedicated operational chapter.
-- **BUILD-30 (Tier 4):** Go / Ruby / PHP migration chapters — small audiences, document only when bandwidth allows.
+- **BUILD-23 (Tier 2):** UIKit chapter mapped from imperative-UI traditions (Android Views, WPF/WinForms, ObjC UIKit history). Many production iOS jobs require UIKit competence; SwiftUI-only is unrealistic. — ⏳ pending
+- **BUILD-24 (Tier 2):** C# → Swift chapter (Xamarin/MAUI sunset, Unity gameplay devs). — ⏳ pending
+- **BUILD-25 (Tier 2):** Dart/Flutter → Swift chapter (cross-platform replatforming). — ⏳ pending
+- **BUILD-26 (Tier 2):** Deepen JS/TS chapter — Combine, Codable customization, KeyPath, property-wrapper authoring, result builders, IUO. — ✅ shipped 2026-05-04 as three companion chapters: `combine-and-async-streams.md`, `codable-deep.md`, `swift-toolkit-for-web-devs.md` (KeyPaths + property-wrapper authoring + result builders + IUO consolidated). The intro chapter `swift-for-web-devs.md` now has a "Going Deeper" pointer block linking all five Phase E + BUILD-26 companion chapters.
+- **BUILD-27 (Tier 3):** C++/Objective-C++ interop (Swift 5.9+ first-class C++ interop, game/SDK devs). — ⏳ pending
+- **BUILD-28 (Tier 3):** Rust → Swift FFI (cbindgen, Swift package wrapping a Rust static lib). — ⏳ pending
+- **BUILD-29 (Tier 3, promoted):** Privacy manifest, ATT, IDFA, BGTaskScheduler, push, App Groups, entitlements — elevated from buried sections to a dedicated operational chapter. — ✅ shipped 2026-05-04 as `docs/09-deployment/app-store-operations.md`. Cross-linked from `security-guide.md` (privacy section) and `deployment-guide.md` (header). Includes a pre-submission checklist treated as a hard gate before each release.
+- **BUILD-30 (Tier 4):** Go / Ruby / PHP migration chapters — small audiences, document only when bandwidth allows. — ⏳ pending
 
 ---
 
@@ -1341,9 +1339,11 @@ Based on impact, difficulty, and dependency ordering. **All 15 original BUILD-*
 items shipped 2026-04-25 → 2026-05-04**. The 2026-05-04 docs review surfaced 9
 new gaps (GAP-D1…D9) and added 7 specified BUILD items (BUILD-16…22) plus a
 Tier 2/3/4 backlog (BUILD-23…30). **BUILD-16…22 (Tier 0 + Tier 1) all
-shipped 2026-05-04.** The active roadmap is the GitHub round-trip wrapper
-(see `plans/github-round-trip.md`) **and** the Tier 2/3/4 docs backlog
-(BUILD-23…30) below.
+shipped 2026-05-04.** **BUILD-26 (deeper JS/TS) and BUILD-29 (App Store
+operations) shipped 2026-05-04** out of the Tier 2/3 backlog (highest
+reader-leverage among the non-language items). The active roadmap is the
+GitHub round-trip wrapper (see `plans/github-round-trip.md`) **and** the
+remaining Tier 2/3/4 docs backlog (BUILD-23, 24, 25, 27, 28, 30) below.
 
 ### Phase A — Foundation (Unblocks Everything Else) — ✅ delivered
 1. ✅ **BUILD-2** — Import dependency graph (enables cross-file type resolution)
@@ -1393,7 +1393,11 @@ once the surface area grew.
 6. ✅ **BUILD-21** — Tier 1 source-language chapters: Kotlin (`from-kotlin.md`), Java (`from-java.md`), Python (`from-python.md`) — all under `docs/02-swift-fundamentals/`.
 7. ✅ **BUILD-22** — Persistence chapter mapped from ORM concepts (`docs/03-architecture/persistence.md`).
 
-**Tier 2/3/4 — Backlog (BUILD-23…30):** UIKit chapter, C# / Dart / C++ / Rust source-language chapters, deeper JS/TS material, privacy-manifest operational chapter, smaller-audience languages. Specs to be drafted next.
+**Tier 2/3 — Partial delivery (2026-05-04):**
+8. ✅ **BUILD-26** — Deepened JS/TS material as three companion chapters: `combine-and-async-streams.md`, `codable-deep.md`, `swift-toolkit-for-web-devs.md`. The intro `swift-for-web-devs.md` now has a "Going Deeper" pointer block to all five Phase E chapters plus the three new BUILD-26 ones.
+9. ✅ **BUILD-29** — App Store operations chapter (`docs/09-deployment/app-store-operations.md`): privacy manifest, ATT, IDFA, BGTaskScheduler, push notifications, App Groups, entitlements, pre-submission checklist. Cross-linked from `security-guide.md` and `deployment-guide.md`.
+
+**Tier 2/3/4 — Remaining backlog:** BUILD-23 (UIKit), BUILD-24 (C#), BUILD-25 (Dart/Flutter), BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP). Specs to be drafted before pickup.
 
 **Cross-cutting recommendation:** before writing more source-language chapters, lock in the per-language template (variables/types, null model, error model, value-vs-reference, concurrency model, generics & polymorphism, memory model, module/visibility, testing idioms, "5 most surprising things"). Without this, new chapters will drift in depth like the existing ones do.
 
@@ -1496,3 +1500,4 @@ Bug fixes that emerged from this run:
 *Generated by iOS Agent Gap Analysis — 2026-04-25*
 *Revised 2026-05-04 — Added dimension 6 (Documentation & Source-Language Coverage), GAP-D1…D9, BUILD-16…22, Tier 2/3/4 backlog (BUILD-23…30), and Phase E roadmap. Source review: `plans/reviews/2026-05-04-language-transposition.md`.*
 *Revised 2026-05-04 (later same day) — Phase E Tier 0 + Tier 1 shipped: BUILD-16, BUILD-17, BUILD-18, BUILD-19, BUILD-20, BUILD-21 (Kotlin/Java/Python), BUILD-22 all marked ✅. Eight new docs files; five new fundamentals chapters under `docs/02-swift-fundamentals/`, one new architecture chapter (`docs/03-architecture/persistence.md`), three correctness fixes to existing chapters.*
+*Revised 2026-05-04 (Tier 2/3 partial) — BUILD-26 (deepened JS/TS) and BUILD-29 (App Store operations) shipped. Four new docs files: `combine-and-async-streams.md`, `codable-deep.md`, `swift-toolkit-for-web-devs.md` (under `02-swift-fundamentals/`), and `app-store-operations.md` (under `09-deployment/`). Cross-links added to `swift-for-web-devs.md`, `security-guide.md`, and `deployment-guide.md`.*

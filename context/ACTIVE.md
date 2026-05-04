@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-04 (revised — Phase E Tier 0 + Tier 1 shipped)
+Last curated: 2026-05-04 (revised — Phase E Tier 0 + Tier 1 shipped; BUILD-26 + BUILD-29 shipped from Tier 2/3)
 
 ## Current State
 
@@ -31,17 +31,25 @@ underweighted, and a few internal inconsistencies (`try!`/`as!` in samples,
 plus a Tier 2/3/4 backlog (BUILD-23…30) in `plans/gap-analysis-and-build-guide.md`,
 under **Phase E — Documentation Depth & Source-Language Coverage**.
 
-**Phase E Tier 0 + Tier 1 are now shipped (2026-05-04).** Eight files of
-changes:
+**Phase E Tier 0 + Tier 1 shipped 2026-05-04** (BUILD-16…22, eight files):
+correctness fixes plus seven new chapters covering concurrency/Sendable, ARC,
+ObjC interop, generics, persistence, and Kotlin/Java/Python source-language
+transpositions.
 
-- ✅ BUILD-20 — Tier 0 correctness fixes in `docs/11-pitfalls/web-dev-gotchas.md`,
-  `docs/05-networking/api-integration.md`, `docs/02-swift-fundamentals/swift-for-web-devs.md`.
-- ✅ BUILD-17 — `docs/02-swift-fundamentals/concurrency-and-sendable.md` (new).
-- ✅ BUILD-19 — `docs/02-swift-fundamentals/arc-and-lifetimes.md` (new).
-- ✅ BUILD-16 — `docs/02-swift-fundamentals/swift-objc-interop.md` (new).
-- ✅ BUILD-18 — `docs/02-swift-fundamentals/generics-and-protocols-deep.md` (new).
-- ✅ BUILD-21 — `from-kotlin.md`, `from-java.md`, `from-python.md` (new, all under `docs/02-swift-fundamentals/`).
-- ✅ BUILD-22 — `docs/03-architecture/persistence.md` (new).
+**Tier 2/3 partial — BUILD-26 + BUILD-29 shipped 2026-05-04** (four files):
+
+- ✅ BUILD-26 — Deepened JS/TS as three companion chapters:
+  - `docs/02-swift-fundamentals/combine-and-async-streams.md` (Combine for RxJS
+    devs, AsyncSequence, `@Published`/`AnyCancellable`, `Observable` macro).
+  - `docs/02-swift-fundamentals/codable-deep.md` (CodingKeys, dates,
+    polymorphism, lossy arrays, property-wrapper-based decoders).
+  - `docs/02-swift-fundamentals/swift-toolkit-for-web-devs.md` (KeyPaths,
+    property-wrapper authoring, result builders / `@ViewBuilder`, IUOs).
+  - The intro `swift-for-web-devs.md` got a "Going Deeper" pointer block.
+- ✅ BUILD-29 — `docs/09-deployment/app-store-operations.md` (privacy manifest,
+  ATT, IDFA, BGTaskScheduler, push, App Groups, entitlements,
+  pre-submission checklist). Cross-linked from `security-guide.md` and
+  `deployment-guide.md`.
 
 Source review: `plans/reviews/2026-05-04-language-transposition.md`.
 
@@ -54,10 +62,10 @@ command currently clones, converts, and commits locally but does not push.
 Phase 3 wires `git push origin <branch>` and optionally `gh pr create` inside
 `wrapper/git_ops.py`.
 
-**Phase E Tier 2/3/4 backlog** — BUILD-23…30 are enumerated but not yet specced
-in detail. Highest-value among them: BUILD-23 (UIKit chapter), BUILD-26 (deepen
-JS/TS chapter — Combine, Codable customization, KeyPath, property wrappers),
-BUILD-29 (privacy manifest / ATT / BGTaskScheduler operational chapter).
+**Phase E remaining Tier 2/3/4 backlog:** BUILD-23 (UIKit chapter),
+BUILD-24 (C# / Xamarin/MAUI sunset audience), BUILD-25 (Dart/Flutter),
+BUILD-27 (C++ interop), BUILD-28 (Rust FFI), BUILD-30 (Go/Ruby/PHP).
+Specs to be drafted before pickup.
 
 ## Relevant Knowledge Refs
 

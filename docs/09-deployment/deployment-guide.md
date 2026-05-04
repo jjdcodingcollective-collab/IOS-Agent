@@ -2,6 +2,8 @@
 
 > On the web, you `git push` and Vercel deploys. On iOS, the path is: build → archive → upload → TestFlight (beta) → App Store review → release. This guide maps your Vercel workflow to the iOS equivalent.
 
+> **Companion: [App Store Operations](app-store-operations.md)** — the privacy manifest, App Tracking Transparency, BGTaskScheduler, push notifications, App Groups, and entitlements that *must* be in order before a submission goes through review. Treat that chapter's pre-submission checklist as a hard gate before each release.
+
 ---
 
 ## Vercel vs. iOS Deployment Pipeline
