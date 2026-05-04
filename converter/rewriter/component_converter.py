@@ -630,6 +630,44 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
 
     # For the MVP, do a structural conversion that captures the key patterns
 
+    # --- BUILD-15: React fragments (<> ... </> and <React.Fragment>) ---
+    if jsx.startswith("<>") or jsx.startswith("<React.Fragment") or jsx.startswith("<Fragment"):
+        children = _extract_fragment_children(jsx)
+        if len(children) == 1:
+            # Single child — unwrap the fragment entirely (no SwiftUI overhead)
+            return process_jsx_element(children[0], state_names, setters, indent_level)
+        if not children:
+            return ""
+        # Multiple children — wrap in Group, the SwiftUI equivalent of a fragment
+        lines.append(f"{ind}// 💡 Learn: SwiftUI Group is the equivalent of a React Fragment — no view in the hierarchy")
+        lines.append(f"{ind}Group {{")
+        for child in children:
+            child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+            if child_result.strip():
+                lines.append(child_result)
+        lines.append(f"{ind}}}")
+        return "\n".join(lines)
+
+    # --- BUILD-15: React portals (createPortal / <Portal>) ---
+    # Portals render into a different DOM node — on iOS, the system manages
+    # this via .sheet(), .fullScreenCover(), .popover(), or NavigationStack.
+    if jsx.startswith("<Portal") or "createPortal(" in jsx:
+        lines.append(f"{ind}// 💡 Learn: React portals don't exist in SwiftUI — the OS manages presentation.")
+        lines.append(f"{ind}//    Use .sheet() / .fullScreenCover() / .popover() / .alert() depending on intent.")
+        lines.append(f"{ind}{swift_todo('Re-host portal content using a system presentation modifier on the parent view')}")
+        # Try to recover children so the developer doesn't lose the body
+        children = extract_jsx_children(jsx) or _extract_fragment_children(jsx)
+        if children:
+            lines.append(f"{ind}Group {{")
+            for child in children:
+                child_result = process_jsx_element(child, state_names, setters, indent_level + 1)
+                if child_result.strip():
+                    lines.append(child_result)
+            lines.append(f"{ind}}}")
+        else:
+            lines.append(f"{ind}EmptyView()")
+        return "\n".join(lines)
+
     # Detect the outermost element
     if jsx.startswith("<div") or jsx.startswith("<section") or jsx.startswith("<main"):
         # Detect flex direction from className
@@ -753,7 +791,7 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
                 lines.append(f"{ind}{swift_todo(f'Port iteration: {inner[:60]}')}")
                 lines.append(f"{ind}EmptyView()")
 
-        elif "&&" in inner and ".map(" not in inner:
+        elif "&&" in inner and ".map(" not in inner and "=>" not in inner:
             parts = inner.split("&&", 1)
             condition = convert_condition(parts[0].strip(), state_names)
             element = parts[1].strip()
@@ -761,6 +799,14 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
             child_result = process_jsx_element(element, state_names, setters, indent_level + 1)
             lines.append(child_result)
             lines.append(f"{ind}}}")
+
+        elif "=>" in inner:
+            # Render-prop / callback bodies (e.g. renderItem={({item}) => (...)} ).
+            # We don't try to inline-convert these — emit a TODO and stop so we
+            # don't leak the JS source into the output.
+            preview = inner[:60].replace("\n", " ")
+            lines.append(f"{ind}{swift_todo(f'Port callback expression: {preview}')}")
+            lines.append(f"{ind}EmptyView()")
 
         elif _is_ternary_expression(inner):
             # --- Fix #2: depth-aware ternary parsing ---
@@ -1143,6 +1189,14 @@ def process_jsx_element(jsx: str, state_names: set, setters: dict, indent_level:
                     lines.append(f"{ind}{swift_todo(f'Convert <{tag_name}> element')}")
                     lines.append(f"{ind}EmptyView()")
 
+    # BUILD-5: Append accessibility modifiers for any HTML/JSX element that
+    # carries aria-*/role/alt/title attributes. Skip expression blocks ({...})
+    # which never have HTML attributes of their own.
+    if lines and jsx.startswith("<") and not jsx.startswith("<>"):
+        a11y_mods = extract_accessibility_modifiers(jsx, state_names)
+        for mod in a11y_mods:
+            lines.append(f"{ind}    {mod}")
+
     return "\n".join(lines)
 
 
@@ -1445,15 +1499,140 @@ def extract_attr(jsx: str, attr_name: str) -> str | None:
     return None
 
 
-def extract_jsx_children(jsx: str) -> list[str]:
-    """Extract top-level child elements from a JSX container."""
-    # Find the content between the opening and closing tags
-    m = re.match(r"<\w+[^>]*>(.*)</\w+\s*>", jsx, re.DOTALL)
-    if not m:
+# ---------------------------------------------------------------------------
+# BUILD-5: Accessibility modifier extraction (aria-*, role, alt, title)
+# ---------------------------------------------------------------------------
+
+ARIA_ROLE_TO_TRAIT: dict[str, str] = {
+    "button": ".isButton",
+    "link": ".isLink",
+    "heading": ".isHeader",
+    "img": ".isImage",
+    "image": ".isImage",
+    "tab": ".isSelected",
+    "search": ".isSearchField",
+    "checkbox": ".isToggle",
+    "switch": ".isToggle",
+    "summary": ".isSummaryElement",
+}
+
+
+def _extract_a11y_attr(jsx: str, attr_name: str) -> str | None:
+    """Extract an attribute that may contain hyphens (e.g. aria-label)."""
+    # String attribute: aria-label="value"
+    m = re.search(rf'{re.escape(attr_name)}=["\']([^"\']+)["\']', jsx)
+    if m:
+        return m.group(1)
+    # Expression attribute: aria-label={expression}
+    m = re.search(rf'{re.escape(attr_name)}=\{{([^}}]+)\}}', jsx)
+    if m:
+        return m.group(1).strip()
+    return None
+
+
+def _format_a11y_value(raw: str, state_names: set | None = None) -> str:
+    """Format an accessibility value as a Swift string literal or interpolation."""
+    state_names = state_names or set()
+    # Plain string — wrap in quotes, escaping any embedded quotes
+    if not (raw.startswith("{") or raw.endswith("}")):
+        # Already a literal value from string attribute
+        escaped = raw.replace('"', '\\"')
+        return f'"{escaped}"'
+    inner = raw.strip("{}").strip()
+    # If it's a known state variable, interpolate
+    if inner in state_names:
+        return f'"\\({inner})"'
+    return f'"\\({inner})"'
+
+
+def extract_accessibility_modifiers(jsx: str, state_names: set | None = None) -> list[str]:
+    """Extract SwiftUI accessibility modifiers from JSX accessibility attributes.
+
+    Maps aria-*, role, alt, and title attributes to their SwiftUI equivalents
+    so VoiceOver and other assistive technologies work in the generated app.
+    """
+    state_names = state_names or set()
+    mods: list[str] = []
+
+    # aria-label, alt, title → .accessibilityLabel(...)
+    label = (
+        _extract_a11y_attr(jsx, "aria-label")
+        or _extract_a11y_attr(jsx, "alt")
+        or _extract_a11y_attr(jsx, "title")
+    )
+    if label:
+        mods.append(f".accessibilityLabel({_format_a11y_value(label, state_names)})")
+
+    # aria-describedby → .accessibilityHint(...)
+    hint = _extract_a11y_attr(jsx, "aria-describedby")
+    if hint:
+        mods.append(f".accessibilityHint({_format_a11y_value(hint, state_names)})")
+
+    # aria-valuenow / aria-valuetext → .accessibilityValue(...)
+    value = (
+        _extract_a11y_attr(jsx, "aria-valuetext")
+        or _extract_a11y_attr(jsx, "aria-valuenow")
+    )
+    if value:
+        mods.append(f".accessibilityValue({_format_a11y_value(value, state_names)})")
+
+    # aria-hidden="true" → .accessibilityHidden(true)
+    hidden = _extract_a11y_attr(jsx, "aria-hidden")
+    if hidden in ("true", "{true}"):
+        mods.append(".accessibilityHidden(true)")
+
+    # role → .accessibilityAddTraits(...)
+    role = _extract_a11y_attr(jsx, "role")
+    if role:
+        trait = ARIA_ROLE_TO_TRAIT.get(role.lower())
+        if trait:
+            mods.append(f".accessibilityAddTraits({trait})")
+        else:
+            mods.append(f'// TODO: Map role="{role}" to an accessibility trait')
+
+    # aria-live — no direct SwiftUI equivalent; flag for manual review
+    if _extract_a11y_attr(jsx, "aria-live"):
+        mods.append(
+            "// TODO: aria-live has no direct SwiftUI equivalent — "
+            "post .announcement notification on update"
+        )
+
+    return mods
+
+
+def _extract_fragment_children(jsx: str) -> list[str]:
+    """Extract children of a React fragment (<>...</> or <React.Fragment>)."""
+    inner: str | None = None
+
+    # Anonymous fragment: <> ... </>
+    if jsx.startswith("<>"):
+        end = jsx.rfind("</>")
+        if end != -1:
+            inner = jsx[2:end]
+
+    # Named fragment: <React.Fragment> ... </React.Fragment> or <Fragment> ... </Fragment>
+    if inner is None:
+        m = re.match(
+            r"<(?:React\.)?Fragment(?:\s[^>]*)?>(.*)</(?:React\.)?Fragment\s*>",
+            jsx,
+            re.DOTALL,
+        )
+        if m:
+            inner = m.group(1)
+
+    if inner is None:
         return []
 
-    content = m.group(1).strip()
-    children = []
+    return _extract_children_from_content(inner.strip())
+
+
+def _extract_children_from_content(content: str) -> list[str]:
+    """Walk a chunk of JSX content and return top-level children.
+
+    Shared between extract_jsx_children (for tagged elements) and
+    _extract_fragment_children (for <> ... </> fragments).
+    """
+    children: list[str] = []
     i = 0
 
     while i < len(content):
@@ -1465,7 +1644,6 @@ def extract_jsx_children(jsx: str) -> list[str]:
 
         if content[i] == "<":
             # HTML/JSX element
-            depth = 0
             start = i
             # Handle self-closing tags
             tag_end = content.find(">", i)
@@ -1520,6 +1698,16 @@ def extract_jsx_children(jsx: str) -> list[str]:
                 children.append(text)
 
     return children
+
+
+def extract_jsx_children(jsx: str) -> list[str]:
+    """Extract top-level child elements from a JSX container."""
+    # Find the content between the opening and closing tags
+    m = re.match(r"<\w+[^>]*>(.*)</\w+\s*>", jsx, re.DOTALL)
+    if not m:
+        return []
+
+    return _extract_children_from_content(m.group(1).strip())
 
 
 # ---------------------------------------------------------------------------
@@ -1882,6 +2070,14 @@ def convert_text_expression(text: str, state_names: set) -> str:
         # This is unconverted JSX — generate a TODO instead of raw HTML in a string
         return '"TODO"'
 
+    # Arrow functions are callback bodies (style={({pressed}) => [...]},
+    # renderItem={({item}) => ...}) that got mis-classified as Text content.
+    # Emitting them as Text() guarantees broken Swift — `({ x }) => ...`
+    # collides with Swift's string-interpolation `\(...)` and arrow tokens
+    # that the validator flags as "JS arrow function leaked".
+    if "=>" in text:
+        return '"TODO"'
+
     # Pure variable reference: {user.name}
     if text.startswith("{") and text.endswith("}"):
         inner = text[1:-1].strip()
@@ -2088,8 +2284,14 @@ def _cleanup_swift_output(code: str) -> str:
                 cleaned.append(f"        {swift_todo(f'Convert component: {stripped[:50]}')}")
                 cleaned.append(f"        EmptyView()")
                 continue
-            # Leaked JS: arrow functions
-            if "() =>" in stripped and "Text(" not in stripped and "//" not in stripped:
+            # Leaked JS: arrow functions. Match any param shape: () =>, (x) =>,
+            # ({ x }) =>, etc. The earlier "() =>" pattern only caught zero-arg
+            # callbacks and missed renderItem-style ({ item }) => callbacks.
+            if (
+                "=>" in stripped
+                and "Text(" not in stripped
+                and "//" not in stripped
+            ):
                 cleaned.append(f"        {swift_todo(f'Port callback: {stripped[:50]}')}")
                 continue
             # Leaked JS: .map( or .filter( chains outside comments

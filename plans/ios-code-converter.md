@@ -1,5 +1,20 @@
 # Plan: iOS Code Converter — Review & Rewrite Pipeline
 
+> **Status (2026-05-04):** All four phases shipped and operational. This file
+> remains as the original architectural blueprint; for the current state see
+> `plans/gap-analysis-and-build-guide.md` (capability matrix) and
+> `plans/github-round-trip.md` (the wrapper that ties everything together).
+>
+> | Phase | Status | Module |
+> |---|---|---|
+> | 1. Analyzer | ✅ shipped | `converter/analyzer/` |
+> | 2. Reviewer | ✅ shipped | `converter/reviewer/` |
+> | 3. Rewriter | ✅ shipped | `converter/rewriter/` |
+> | 4. Assembler | ✅ shipped | `converter/assembler/` |
+> | + Validator | ✅ added (BUILD-9) | `converter/validator/` |
+> | + Learning notes | ✅ added | `converter/learning/` |
+> | + Wrapper (GitHub round-trip) | ✅ Phase 1+2 shipped | `wrapper/` |
+
 ## Vision
 
 An internal AI-powered tool that takes TypeScript web code and:

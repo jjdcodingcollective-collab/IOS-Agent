@@ -1,10 +1,39 @@
 # IOS-Agent
 
-> A comprehensive reference guide for teams transitioning from web development (containerized builds, Vercel deployments) to the iOS and Apple ecosystem.
+> A reference guide **and** an automated converter for teams transitioning from web development (containerized builds, Vercel deployments) to the iOS and Apple ecosystem.
 
 **Who this is for:** Web developers who build with modern frameworks (React, Next.js, Vite), deploy on Vercel, and are now bringing their products to native iOS.
 
-**What this covers:** The full journey from web to native — environment setup, Swift fundamentals mapped to web concepts, architecture translation, hybrid approaches with WebViews, App Store deployment, and everything in between.
+**What this covers:** The full journey from web to native — environment setup, Swift fundamentals mapped to web concepts, architecture translation, hybrid approaches with WebViews, App Store deployment, and everything in between. Plus a working pipeline that takes your TypeScript codebase and produces a buildable Swift/SwiftUI project.
+
+---
+
+## The Converter (operational)
+
+Two ways to use it:
+
+**1. Local conversion** — point it at a TS project on disk:
+```
+python -m wrapper convert path/to/typescript-app --app-name MyApp
+```
+
+**2. GitHub round-trip** — clone a repo, convert, and create an `ios-conversion` branch:
+```
+python -m wrapper convert-from-github https://github.com/you/your-app --app-name MyApp
+# Monorepo? scope to a subdirectory:
+python -m wrapper convert-from-github https://github.com/you/your-app \
+    --source-subdir apps/mobile --app-name MyApp
+```
+
+The converter writes a Swift project (`Package.swift`, `project.yml` for [xcodegen](https://github.com/yonaskolb/XcodeGen), `Sources/`, `Tests/`) plus five reports under `.ios-conversion/` on the conversion branch. Runs that fail validation or score below 60% confidence land on a `Requires-more-review/` prefixed branch so reviewers can spot them at a glance.
+
+Pipeline:
+
+```
+TS source → analyzer → reviewer → rewriter → assembler → validator → reports + Swift project
+```
+
+Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md`); wrapper is at Phase 2 (clone + convert + local commit; push lands in Phase 3).
 
 ---
 
@@ -77,6 +106,8 @@ This is a living reference. To contribute:
 
 ## Last Updated
 
-**2026-04-25** — Initial release covering the full web-to-iOS transition path.
+**2026-05-04** — Added GitHub round-trip wrapper (Phase 1 + 2). Validated end-to-end against `the-survival-bible` monorepo (42 files converted, 50/50 structural validation pass). All 15 BUILD-* items from the original gap analysis are shipped.
+
+**2026-04-25** — Initial release covering the full web-to-iOS transition path and the four-phase converter pipeline.
 
 Maintained by the IOS-Agent team. Review quarterly or after major WWDC announcements.

@@ -222,13 +222,105 @@ def convert_file(
 
     output_path = f"{ios_dir}/{swift_filename}"
 
+    score, breakdown = score_rewrite(swift_code, manifest_entry, file_type)
+
     return RewriteResult(
         source_path=relative_path,
         output_path=output_path,
         swift_code=swift_code,
         file_type=file_type,
         notes=notes,
+        confidence_score=score,
+        confidence_breakdown=breakdown,
     )
+
+
+# ---------------------------------------------------------------------------
+# BUILD-14: Per-file confidence scoring
+# ---------------------------------------------------------------------------
+
+def score_rewrite(swift_code: str, manifest_entry: dict, file_type: str) -> tuple[float, dict]:
+    """Compute a 0.0–1.0 confidence score for a generated Swift file.
+
+    The score starts at 1.0 and is reduced by each weak signal in the output:
+    TODOs, EmptyView fallbacks, Any-type fallbacks, and patterns the analyzer
+    flagged as ``manual``. Scores are clamped to [0.0, 1.0]. The breakdown
+    dict explains every deduction so users can see exactly why a file scored
+    low and prioritise their manual review.
+    """
+    breakdown: dict = {}
+    score = 1.0
+
+    todo_count = swift_code.count("// TODO")
+    if todo_count:
+        delta = -0.05 * todo_count
+        score += delta
+        breakdown["todos"] = {"count": todo_count, "delta": round(delta, 3)}
+
+    empty_view_count = swift_code.count("EmptyView()")
+    if empty_view_count:
+        delta = -0.10 * empty_view_count
+        score += delta
+        breakdown["empty_views"] = {"count": empty_view_count, "delta": round(delta, 3)}
+
+    any_count = swift_code.count(": Any") + swift_code.count(":Any")
+    if any_count:
+        delta = -0.03 * any_count
+        score += delta
+        breakdown["any_fallbacks"] = {"count": any_count, "delta": round(delta, 3)}
+
+    force_unwrap_count = _count_force_unwraps(swift_code)
+    if force_unwrap_count:
+        delta = -0.04 * force_unwrap_count
+        score += delta
+        breakdown["force_unwraps"] = {"count": force_unwrap_count, "delta": round(delta, 3)}
+
+    # Pattern difficulty distribution (analyzer signal — independent of generated code)
+    auto = assisted = manual = 0
+    for p in manifest_entry.get("patterns", []) or []:
+        difficulty = (p.get("conversion_difficulty") if isinstance(p, dict) else None) or ""
+        if difficulty == "auto":
+            auto += 1
+        elif difficulty == "assisted":
+            assisted += 1
+        elif difficulty == "manual":
+            manual += 1
+
+    if manual:
+        delta = -0.08 * manual
+        score += delta
+        breakdown["manual_patterns"] = {"count": manual, "delta": round(delta, 3)}
+    if assisted:
+        # Smaller penalty — assisted patterns generate decent output but need review
+        delta = -0.02 * assisted
+        score += delta
+        breakdown["assisted_patterns"] = {"count": assisted, "delta": round(delta, 3)}
+
+    # Clamp and round
+    score = max(0.0, min(1.0, score))
+    breakdown["final"] = round(score, 3)
+    breakdown["file_type"] = file_type
+    return round(score, 3), breakdown
+
+
+def _count_force_unwraps(swift_code: str) -> int:
+    """Count force-unwrap operators (``!``) excluding type declarations and comments."""
+    import re as _re
+    count = 0
+    for line in swift_code.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("//"):
+            continue
+        # Skip implicitly-unwrapped optionals in declarations: `var x: T!`
+        if _re.search(r":\s*\w+!", line):
+            continue
+        # Match ! that follows an identifier/closer and is not !=
+        for m in _re.finditer(r"[\w\)\]]!", line):
+            idx = m.end()
+            if idx < len(line) and line[idx] == "=":
+                continue
+            count += 1
+    return count
 
 
 # ---------------------------------------------------------------------------

@@ -1194,53 +1194,88 @@ Update `extract_jsx_children()` to handle fragment closing tags (`</>`, `</React
 
 ## Part 3: Priority Roadmap
 
-Based on impact, difficulty, and dependency ordering:
+Based on impact, difficulty, and dependency ordering. **All 15 BUILD-* items
+shipped 2026-04-25 → 2026-05-04**; the active roadmap is now the GitHub
+round-trip wrapper (see `plans/github-round-trip.md`).
 
-### Phase A — Foundation (Unblocks Everything Else)
-1. **BUILD-2** — Import dependency graph (enables cross-file type resolution)
-2. **BUILD-1** — Lightweight AST support (fixes the regex ceiling)
-3. **BUILD-9** — Compilation validation (catches issues early)
+### Phase A — Foundation (Unblocks Everything Else) — ✅ delivered
+1. ✅ **BUILD-2** — Import dependency graph (enables cross-file type resolution)
+2. ✅ **BUILD-1** — Lightweight AST support (fixes the regex ceiling)
+3. ✅ **BUILD-9** — Compilation validation (catches issues early)
 
-### Phase B — iOS Project Viability
-4. **BUILD-3** — Xcode project / SPM package generation
-5. **BUILD-4** — Info.plist generation
-6. **BUILD-12** — Error handling patterns
+### Phase B — iOS Project Viability — ✅ delivered
+4. ✅ **BUILD-3** — Xcode project / SPM package generation
+5. ✅ **BUILD-4** — Info.plist generation
+6. ✅ **BUILD-12** — Error handling patterns
 
-### Phase C — Real-World App Support
-7. **BUILD-7** — Next.js-specific handling
-8. **BUILD-6** — useEffect conversion expansion
-9. **BUILD-8** — State management library converters
-10. **BUILD-11** — Expanded JSX element coverage
+### Phase C — Real-World App Support — ✅ delivered
+7. ✅ **BUILD-7** — Next.js-specific handling
+8. ✅ **BUILD-6** — useEffect conversion expansion
+9. ✅ **BUILD-8** — State management library converters
+10. ✅ **BUILD-11** — Expanded JSX element coverage
 
-### Phase D — Quality & Education
-11. **BUILD-13** — Expanded learning annotations + anti-patterns
-12. **BUILD-5** — Accessibility modifiers
-13. **BUILD-10** — Test stub generation
-14. **BUILD-14** — Per-file confidence scoring
-15. **BUILD-15** — React fragments and portals
+### Phase D — Quality & Education — ✅ delivered
+11. ✅ **BUILD-13** — Expanded learning annotations + anti-patterns
+12. ✅ **BUILD-5** — Accessibility modifiers
+13. ✅ **BUILD-10** — Test stub generation
+14. ✅ **BUILD-14** — Per-file confidence scoring
+15. ✅ **BUILD-15** — React fragments and portals
+
+### Next: Wrapper / GitHub round-trip
+- ✅ Phase 1 — local convert (`python -m wrapper convert <path>`)
+- ✅ Phase 2 — clone + convert + local branch with `Requires-more-review/`
+  prefix, revision counter, and update-notes diff
+- ⏳ Phase 3 — push the conversion branch to GitHub
+- ⏳ Phase 4 — first-class monorepo discovery (auto-detect `apps/mobile` etc.)
+- ⏳ Phase 5 — hosted service wrapping the CLI (paid product)
 
 ---
 
 ## Appendix A: Current Capability Matrix
 
+> **Last refreshed:** 2026-05-04 — after Phase A–D BUILD-1…15 delivery and the
+> first GitHub round-trip integration test against `the-survival-bible`.
+
 | Capability | Status | Coverage | Notes |
 |---|---|---|---|
 | Component detection | ✅ Working | ~90% | Misses HOCs, forwardRef |
 | Hook detection | ✅ Working | ~85% | All built-in + custom hooks |
-| State management detection | ✅ Working | ~70% | Detects but doesn't convert |
+| State management detection | ✅ Working | ~75% | Detects + basic Redux/Zustand converters (BUILD-8) |
 | API call detection | ✅ Working | ~80% | fetch, axios, generic patterns |
 | Routing detection | ✅ Working | ~75% | React Router, Next.js |
 | Style detection | ✅ Working | ~70% | Tailwind, CSS Modules, styled |
 | Type conversion | ✅ Working | ~80% | Simple types, basic generics |
-| Component → View | ⚠️ Partial | ~65% | 15/30+ elements, limited JSX |
-| Hook → ViewModel | ⚠️ Partial | ~60% | Structure ok, logic stubs |
-| Service → Service | ✅ Working | ~75% | Good async pattern |
-| Project assembly | ⚠️ Partial | ~50% | No .xcodeproj, no Info.plist |
-| Learning system | ✅ Working | ~60% | 18 concepts, no anti-patterns |
-| Validation | ❌ Missing | 0% | No compile checking |
-| Testing | ❌ Missing | 0% | No test generation |
-| Next.js support | ❌ Missing | 0% | Detected, not converted |
-| Accessibility | ❌ Missing | 0% | ARIA attributes dropped |
+| Component → View | ✅ Working | ~80% | 30+ elements covered (BUILD-11), fragments/portals (BUILD-15) |
+| Hook → ViewModel | ⚠️ Partial | ~70% | useEffect/useMemo/useRef expanded (BUILD-6); logic still stubbed |
+| Service → Service | ✅ Working | ~80% | Async + structured error handling (BUILD-12) |
+| Project assembly | ✅ Working | ~85% | SPM `Package.swift` + xcodegen `project.yml` + `Info.plist` (BUILD-3, BUILD-4) |
+| Learning system | ✅ Working | ~85% | 34 annotations incl. anti-patterns (BUILD-13) |
+| Validation | ✅ Working | ~75% | Pattern lint + per-file confidence; swiftc-parse when toolchain present (BUILD-9, BUILD-14) |
+| Testing | ✅ Working | ~70% | Per-ViewModel + per-service XCTest stubs with MockURLProtocol (BUILD-10) |
+| Next.js support | ⚠️ Partial | ~50% | Detector + image/head/lazy/styling translators (BUILD-7); SSR still flagged manual |
+| Accessibility | ✅ Working | ~75% | ARIA → SwiftUI a11y modifiers (BUILD-5) |
+| GitHub round-trip wrapper | ✅ Working (Phase 2) | clone + convert + local branch with revisions and update-notes; push pending Phase 3 |
+
+### Real-world validation (2026-05-04)
+
+Pointed the wrapper at [`the-survival-bible`](https://github.com/jjdcodingcollective-collab/the-survival-bible)
+monorepo via `--source-subdir apps/mobile`. Result:
+
+| Metric | Value |
+|---|---|
+| Files converted | 42 |
+| Files passing structural validation | 50 / 50 |
+| Validation errors | 0 |
+| Average confidence | 52% (run-level) / 66% (validator-level) |
+| Confidence bands | 13 HIGH / 13 MEDIUM / 16 LOW |
+
+Bug fixes that emerged from this run:
+
+- Arrow-function leak (3 paths in `component_converter.py`): JSX prop callbacks
+  like `style={({pressed}) => [...]}` and `renderItem={({item}) => ...}` no
+  longer leak `=>` into Swift output. The `&&` and Text-content branches now
+  reject `=>` early, and the post-processor's leaked-callback detector accepts
+  any param shape (not just `() =>`).
 
 ## Appendix B: File Reference
 

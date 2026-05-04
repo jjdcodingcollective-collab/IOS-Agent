@@ -251,6 +251,28 @@ def main():
     for ap in sorted(assembly.generated_files.keys()):
         summary_lines.append(f"| *(assembled)* | `{ap}` | PROJECT |")
 
+    # BUILD-14: Per-file rewriter confidence (independent of swiftc validation)
+    scored = [r for r in result.files if r.confidence_breakdown]
+    if scored:
+        avg = round(sum(r.confidence_score for r in scored) / len(scored) * 100)
+        summary_lines.append("\n## Conversion Confidence\n")
+        summary_lines.append(
+            f"Per-file rewriter confidence based on TODOs, fallbacks, and "
+            f"analyzer-flagged manual patterns. Average: **{avg}%**.\n"
+        )
+        summary_lines.append("| File | Confidence | Issues |")
+        summary_lines.append("|---|---|---|")
+        for r in sorted(scored, key=lambda x: x.confidence_score):
+            pct = int(r.confidence_score * 100)
+            badge = "HIGH" if pct >= 80 else ("MEDIUM" if pct >= 50 else "LOW")
+            issues = []
+            for k, v in r.confidence_breakdown.items():
+                if isinstance(v, dict) and "count" in v:
+                    label = k.replace("_", " ")
+                    issues.append(f"{v['count']} {label}")
+            issue_str = ", ".join(issues) if issues else "none"
+            summary_lines.append(f"| `{r.output_path}` | {pct}% {badge} | {issue_str} |")
+
     summary_lines.append("\n## iOS Project Structure\n")
     summary_lines.append("```")
     summary_lines.append(f"{args.app_name}/")

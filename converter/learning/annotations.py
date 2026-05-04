@@ -319,6 +319,197 @@ ANNOTATIONS: dict[str, dict] = {
         ),
         "web_analogy": "No direct web equivalent — JS is single-threaded. Like Rust's Send trait for thread safety.",
     },
+
+    # -- Anti-patterns (GAP-E2) — what NOT to do --
+    "antipattern_any_view": {
+        "title": "Don't Use AnyView Everywhere",
+        "short": "AnyView erases type information SwiftUI needs for efficient diffing.",
+        "detail": (
+            "Web developers sometimes wrap views in AnyView to 'make types work.' This is like "
+            "wrapping everything in React.Fragment — it works but kills performance. SwiftUI "
+            "uses concrete view types for its diffing algorithm, comparing structurally identical "
+            "trees in O(1). AnyView forces runtime type checks instead of compile-time "
+            "optimization, defeating the framework's main performance trick. Use @ViewBuilder "
+            "(returns the right opaque type) or generic constraints (some View) instead."
+        ),
+        "web_analogy": "Like using 'any' in TypeScript — it compiles but defeats the type system's purpose.",
+        "apple_doc": "https://developer.apple.com/documentation/swiftui/anyview",
+    },
+
+    "antipattern_force_unwrap": {
+        "title": "Never Force-Unwrap in Production Code",
+        "short": "The ! operator crashes your app if the value is nil — use if let or guard.",
+        "detail": (
+            "JavaScript silently propagates undefined; Swift makes nil explicit through Optionals. "
+            "Force-unwrapping with ! says 'I'm certain this isn't nil — crash if I'm wrong.' That "
+            "produces a runtime crash users see as an app freeze, not a recoverable error. Prefer "
+            "if let, guard let, ?? defaults, or optional chaining (?.). Reserve ! for IBOutlets "
+            "and a few well-known exceptions (e.g., URL(string: hardcodedLiteral)!)."
+        ),
+        "web_analogy": "Like calling .toString() on undefined — Swift makes you handle the nil case explicitly.",
+    },
+
+    "antipattern_body_logic": {
+        "title": "Keep var body Simple — No Heavy Logic",
+        "short": "body is called on every state change. Move logic to methods or computed props.",
+        "detail": (
+            "var body is called every time SwiftUI re-evaluates the view — potentially many times "
+            "per second during scrolling or animation. Putting heavy work there (sorting, "
+            "filtering, network calls, JSON decoding) makes the UI janky. Move expensive "
+            "computations to the ViewModel, cache results in @State, or use computed properties "
+            "outside body. Treat body like the return statement of a React component — purely "
+            "describe the UI, don't compute data there."
+        ),
+        "web_analogy": "Like avoiding heavy work in a React component's render — same rule, same reason.",
+    },
+
+    "antipattern_observableobject_legacy": {
+        "title": "Prefer @Observable over ObservableObject",
+        "short": "@Observable (iOS 17+) is the modern macro — fewer property wrappers, better perf.",
+        "detail": (
+            "Older SwiftUI code uses ObservableObject + @Published + @StateObject + @ObservedObject. "
+            "iOS 17 introduced @Observable, which eliminates @Published and lets SwiftUI track "
+            "exactly which properties each view reads (fine-grained reactivity). Less boilerplate, "
+            "better performance. Use @State to own an instance, @Bindable for two-way binding, "
+            "@Environment to inject. Only fall back to ObservableObject if you must support "
+            "iOS 16 and earlier."
+        ),
+        "web_analogy": "Like migrating from class components to hooks — same job, much less ceremony.",
+        "apple_doc": "https://developer.apple.com/documentation/observation/observable()",
+    },
+
+    "antipattern_geometry_reader_overuse": {
+        "title": "Don't Reach for GeometryReader First",
+        "short": "GeometryReader fills its parent and breaks intrinsic sizing — try modifiers first.",
+        "detail": (
+            "Web developers reach for GeometryReader because it feels like getBoundingClientRect. "
+            "It works, but it greedily fills the available space, which often breaks layouts that "
+            "expected a child to size to its content. Try .frame(maxWidth: .infinity), "
+            ".aspectRatio, .containerRelativeFrame, or alignment guides first. Use GeometryReader "
+            "only when you need the actual measured size for math (custom shapes, gauges)."
+        ),
+        "web_analogy": "Like reaching for ResizeObserver when CSS would have worked.",
+    },
+
+    # -- Missing concepts (GAP-E3) --
+    "app_lifecycle": {
+        "title": "Why App Lifecycle Matters More on Mobile",
+        "short": "iOS can suspend or terminate your app at any time — save state proactively.",
+        "detail": (
+            "Web apps run until the user closes the tab. iOS apps move through scene phases: "
+            "active → inactive → background → suspended → terminated. The OS can kill a "
+            "background app at any moment to reclaim memory — without warning, without a chance "
+            "to run cleanup code. You must save important state in .onChange(of: scenePhase) "
+            "when transitioning to .background, and restore it on launch. This is also when "
+            "you stop timers, pause downloads, and release resources you don't need backgrounded."
+        ),
+        "web_analogy": "Like the Page Visibility API, but the OS can kill your tab entirely without notice.",
+        "apple_doc": "https://developer.apple.com/documentation/swiftui/scenephase",
+    },
+
+    "memory_management_arc": {
+        "title": "Why Swift Uses ARC Instead of Garbage Collection",
+        "short": "ARC is deterministic — objects are freed immediately when no longer referenced.",
+        "detail": (
+            "JavaScript uses garbage collection: the runtime periodically scans for unreachable "
+            "objects and frees them. Swift uses Automatic Reference Counting (ARC): the compiler "
+            "inserts retain/release calls so objects are freed the instant their reference count "
+            "hits zero. This gives predictable performance (no GC pauses) and lower memory "
+            "overhead — critical on resource-constrained mobile devices. The trade-off is "
+            "retain cycles: if A holds B and B holds A, neither ever reaches zero. Solve this "
+            "with [weak self] in closures, just as you'd avoid circular references in JS."
+        ),
+        "web_analogy": "Like RAII in C++ or Rust's ownership — deterministic cleanup, no GC pauses.",
+    },
+
+    "swiftui_layout_system": {
+        "title": "How SwiftUI Layout Differs from CSS",
+        "short": "SwiftUI negotiates size between parent and child — no box model, no flow.",
+        "detail": (
+            "CSS uses a box model with flow, flexbox, and grid. SwiftUI uses a three-step "
+            "negotiation: parent proposes a size, child chooses its size, parent places the "
+            "child. There's no margin (use padding on parent), no float, no position:absolute "
+            "(use overlays/ZStack). VStack/HStack are like flex-direction column/row but with "
+            "intrinsic content sizing as the default. .frame() does NOT set a size — it "
+            "proposes one to the child. GeometryReader gives you the parent's size for "
+            "measurement-driven layout, but use it sparingly."
+        ),
+        "web_analogy": "Like flexbox where every child negotiates its size with its parent instead of being told.",
+        "apple_doc": "https://developer.apple.com/documentation/swiftui/layout",
+    },
+
+    "binding_property_wrapper": {
+        "title": "Why @Binding for Two-Way Data Flow",
+        "short": "@Binding is a reference to a parent's @State — the child can read AND write.",
+        "detail": (
+            "React passes value + onChange as separate props for two-way binding. SwiftUI bundles "
+            "them into a single @Binding. When a parent has @State var name = '' and passes $name "
+            "(the dollar sign creates a Binding) to a child with @Binding var name: String, the "
+            "child can mutate it directly and SwiftUI rebuilds the parent. This is type-safe "
+            "and impossible to misuse — you can't accidentally pass a value without its setter."
+        ),
+        "web_analogy": "Like passing { value, onChange } as one prop — but bundled and type-safe.",
+        "apple_doc": "https://developer.apple.com/documentation/swiftui/binding",
+    },
+
+    "sheet_presentation": {
+        "title": "Why .sheet() Instead of Modal Components",
+        "short": "iOS manages modal presentation at the system level — sheets, alerts, popovers.",
+        "detail": (
+            "Web modals are usually rendered by your component tree (React portals, custom <dialog>). "
+            "On iOS, the system owns presentation: .sheet() slides up a card with platform-correct "
+            "animations, swipe-to-dismiss gestures, and accessibility focus management. .alert() "
+            "for confirmations, .popover() for contextual menus, .fullScreenCover() for takeovers. "
+            "Each is a state-driven modifier (bind to a Bool or optional Item). The OS handles "
+            "the visuals — your job is just describing what content goes inside."
+        ),
+        "web_analogy": "Like a polished <dialog> element with a built-in animation library and a11y baked in.",
+    },
+
+    "accessibility_first": {
+        "title": "Why Accessibility Is a Core iOS Feature",
+        "short": "VoiceOver and Dynamic Type are required, not optional — Apple ships them on every device.",
+        "detail": (
+            "Web accessibility is often retrofitted with aria attributes. iOS accessibility is "
+            "built into every framework: VoiceOver reads screens for blind users, Dynamic Type "
+            "scales text for low-vision users, Switch Control lets users navigate with one button. "
+            "These ship on every iPhone — millions of users rely on them daily. SwiftUI exposes "
+            ".accessibilityLabel, .accessibilityHint, .accessibilityAddTraits, and "
+            ".accessibilityValue as first-class modifiers. Apple often rejects apps that don't "
+            "label their controls."
+        ),
+        "web_analogy": "Like aria-label and role, but a Human Interface Guidelines requirement, not a nice-to-have.",
+        "apple_doc": "https://developer.apple.com/accessibility/",
+    },
+
+    "error_handling_swift": {
+        "title": "Why Swift Errors Are Explicit and Exhaustive",
+        "short": "throws / try / catch is a typed contract — the compiler ensures every error is handled.",
+        "detail": (
+            "JavaScript errors are dynamic: any function might throw, you find out at runtime. "
+            "Swift requires you to mark throwing functions with throws and call them with try. "
+            "Errors are typed (conform to Error), and the compiler checks that callers either "
+            "handle them in catch or propagate them by re-marking themselves throws. do { try } "
+            "catch is exhaustive — you can pattern-match specific error cases. This makes error "
+            "paths visible in code review and impossible to ignore by accident."
+        ),
+        "web_analogy": "Like Result<T, E> in Rust — error possibility is part of the function signature.",
+        "apple_doc": "https://docs.swift.org/swift-book/documentation/the-swift-programming-language/errorhandling/",
+    },
+
+    "compile_time_safety": {
+        "title": "Why Swift Catches Errors Before You Run",
+        "short": "Swift is ahead-of-time compiled — type errors block the build, not your runtime.",
+        "detail": (
+            "TypeScript erases types at runtime; you can run code that has type errors. Swift "
+            "compiles to native machine code through swiftc/LLVM — type errors stop the build. "
+            "If your app builds, the compiler has already verified that no value is the wrong "
+            "type, no Optional is unhandled, no error is uncaught, no actor is touched without "
+            "await. The trade-off is slower iteration during a refactor (compile times), but "
+            "the payoff is far fewer 'undefined is not a function' surprises in production."
+        ),
+        "web_analogy": "Like running tsc --noEmit before every deploy, but enforced — and applied to memory and concurrency too.",
+    },
 }
 
 
@@ -337,15 +528,28 @@ PATTERN_ANNOTATION_MAP: dict[str, list[str]] = {
     "route": ["navigation_stack"],
 
     # Pattern-type level annotations
-    "state_management": ["state_property_wrapper"],
+    "state_management": ["state_property_wrapper", "binding_property_wrapper", "antipattern_observableobject_legacy"],
     "useState": ["state_property_wrapper"],
-    "useEffect": ["task_modifier"],
+    "useEffect": ["task_modifier", "antipattern_body_logic"],
     "useContext": ["environment"],
-    "api_call": ["urlsession", "async_await_swift", "codable"],
+    "api_call": ["urlsession", "async_await_swift", "codable", "error_handling_swift"],
     "routing": ["navigation_stack"],
     "env_variable": ["xcconfig"],
     "storage": ["keychain", "userdefaults"],
     "localStorage": ["keychain", "userdefaults"],
+
+    # Anti-pattern triggers — surfaced when the converter generates fallback/risky code
+    "any_view_fallback": ["antipattern_any_view"],
+    "force_unwrap": ["antipattern_force_unwrap"],
+    "geometry_reader": ["antipattern_geometry_reader_overuse"],
+
+    # iOS-specific concept patterns
+    "scene_phase": ["app_lifecycle"],
+    "modal_presentation": ["sheet_presentation"],
+    "accessibility": ["accessibility_first"],
+    "layout": ["swiftui_layout_system"],
+    "memory": ["memory_management_arc"],
+    "throws_function": ["error_handling_swift", "compile_time_safety"],
 }
 
 
