@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ios-agent/config/apple-privacy-manifest.schema.json",
+  "title": "Apple Privacy Manifest (PrivacyInfo.xcprivacy)",
+  "description": "Schema for validating PrivacyInfo.xcprivacy after plistlib decoding into a Python dict. Apple does NOT publish a formal JSON Schema for this file; this schema is derived from Apple's published structural documentation (see x-source) and is reviewed quarterly per ADR 0001.",
+  "x-source": "https://developer.apple.com/documentation/bundleresources/app-privacy-configuration",
+  "x-captured-on": "2026-05-05",
+  "x-spec-version": "Apple privacy manifest spec as documented at the URL above on the captured-on date. Apple has expanded this spec twice in 2024; treat as time-versioned data, not stable.",
+  "x-related-files": [
+    "config/apple-required-reason-apis.yaml",
+    "converter/compliance/privacy_manifest.py"
+  ],
+  "x-update-policy": "When Apple changes the spec: (1) refetch the four pages under bundleresources/app-privacy-configuration; (2) diff against this schema; (3) update enums/structure as needed; (4) bump x-captured-on; (5) add a fixture under converter/compliance/tests/fixtures/ that exercises the new shape; (6) re-run the privacy-manifest test suite.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "NSPrivacyTracking": {
+      "type": "boolean",
+      "description": "Whether the app or third-party SDK uses data for tracking as defined under the App Tracking Transparency framework. If true, NSPrivacyTrackingDomains must list every internet domain used for tracking purposes."
+    },
+    "NSPrivacyTrackingDomains": {
+      "type": "array",
+      "description": "Internet domains that the app or third-party SDK connects to and uses for tracking. Required to be non-empty when NSPrivacyTracking is true. Each entry is a fully-qualified domain (no scheme, no path).",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9]([A-Za-z0-9\\-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9\\-]{0,61}[A-Za-z0-9])?)+$"
+      },
+      "uniqueItems": true
+    },
+    "NSPrivacyCollectedDataTypes": {
+      "type": "array",
+      "description": "Types of data the app or third-party SDK collects, with the purposes for collection and any links to the user's identity / use for tracking.",
+      "items": {
+        "$ref": "#/$defs/CollectedDataTypeEntry"
+      }
+    },
+    "NSPrivacyAccessedAPITypes": {
+      "type": "array",
+      "description": "Required-reason API categories the app or third-party SDK uses, with the approved Apple reason codes for each.",
+      "items": {
+        "$ref": "#/$defs/AccessedAPITypeEntry"
+      }
+    }
+  },
+  "required": [
+    "NSPrivacyTracking",
+    "NSPrivacyTrackingDomains",
+    "NSPrivacyCollectedDataTypes",
+    "NSPrivacyAccessedAPITypes"
+  ],
+  "allOf": [
+    {
+      "description": "If NSPrivacyTracking is true, at least one tracking domain must be declared.",
+      "if": {
+        "properties": { "NSPrivacyTracking": { "const": true } },
+        "required": ["NSPrivacyTracking"]
+      },
+      "then": {
+        "properties": {
+          "NSPrivacyTrackingDomains": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+
+  "$defs": {
+    "AccessedAPITypeEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["NSPrivacyAccessedAPIType", "NSPrivacyAccessedAPITypeReasons"],
+      "properties": {
+        "NSPrivacyAccessedAPIType": {
+          "type": "string",
+          "description": "Apple-defined required-reason API category identifier.",
+          "enum": [
+            "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPICategoryActiveKeyboards",
+            "NSPrivacyAccessedAPICategoryUserDefaults"
+          ]
+        },
+        "NSPrivacyAccessedAPITypeReasons": {
+          "type": "array",
+          "description": "Approved Apple reason codes for this category. Must contain at least one entry; entries must be valid for the named category.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "DDA9.1",
+              "C617.1",
+              "3B52.1",
+              "0A2A.1",
+              "35F9.1",
+              "8FFB.1",
+              "3D61.1",
+              "85F4.1",
+              "E174.1",
+              "7D9E.1",
+              "B728.1",
+              "3EC4.1",
+              "54BD.1",
+              "CA92.1",
+              "1C8F.1",
+              "C56D.1",
+              "AC6B.1"
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "description": "FileTimestamp category: only DDA9.1 / C617.1 / 3B52.1 / 0A2A.1 are valid.",
+          "if": {
+            "properties": { "NSPrivacyAccessedAPIType": { "const": "NSPrivacyAccessedAPICategoryFileTimestamp" } }
+          },
+          "then": {
+            "properties": {
+              "NSPrivacyAccessedAPITypeReasons": {
+                "items": { "enum": ["DDA9.1", "C617.1", "3B52.1", "0A2A.1"] }
+              }
+            }
+          }
+        },
+        {
+          "description": "SystemBootTime category: only 35F9.1 / 8FFB.1 / 3D61.1 are valid.",
+          "if": {
+            "properties": { "NSPrivacyAccessedAPIType": { "const": "NSPrivacyAccessedAPICategorySystemBootTime" } }
+          },
+          "then": {
+            "properties": {
+              "NSPrivacyAccessedAPITypeReasons": {
+                "items": { "enum": ["35F9.1", "8FFB.1", "3D61.1"] }
+              }
+            }
+          }
+        },
+        {
+          "description": "DiskSpace category: only 85F4.1 / E174.1 / 7D9E.1 / B728.1 are valid.",
+          "if": {
+            "properties": { "NSPrivacyAccessedAPIType": { "const": "NSPrivacyAccessedAPICategoryDiskSpace" } }
+          },
+          "then": {
+            "properties": {
+              "NSPrivacyAccessedAPITypeReasons": {
+                "items": { "enum": ["85F4.1", "E174.1", "7D9E.1", "B728.1"] }
+              }
+            }
+          }
+        },
+        {
+          "description": "ActiveKeyboards category: only 3EC4.1 / 54BD.1 are valid.",
+          "if": {
+            "properties": { "NSPrivacyAccessedAPIType": { "const": "NSPrivacyAccessedAPICategoryActiveKeyboards" } }
+          },
+          "then": {
+            "properties": {
+              "NSPrivacyAccessedAPITypeReasons": {
+                "items": { "enum": ["3EC4.1", "54BD.1"] }
+              }
+            }
+          }
+        },
+        {
+          "description": "UserDefaults category: only CA92.1 / 1C8F.1 / C56D.1 / AC6B.1 are valid.",
+          "if": {
+            "properties": { "NSPrivacyAccessedAPIType": { "const": "NSPrivacyAccessedAPICategoryUserDefaults" } }
+          },
+          "then": {
+            "properties": {
+              "NSPrivacyAccessedAPITypeReasons": {
+                "items": { "enum": ["CA92.1", "1C8F.1", "C56D.1", "AC6B.1"] }
+              }
+            }
+          }
+        }
+      ]
+    },
+
+    "CollectedDataTypeEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NSPrivacyCollectedDataType",
+        "NSPrivacyCollectedDataTypeLinked",
+        "NSPrivacyCollectedDataTypeTracking",
+        "NSPrivacyCollectedDataTypePurposes"
+      ],
+      "properties": {
+        "NSPrivacyCollectedDataType": {
+          "type": "string",
+          "description": "Apple-defined data-type identifier (e.g. NSPrivacyCollectedDataTypeName, NSPrivacyCollectedDataTypeEmailAddress, NSPrivacyCollectedDataTypeDeviceID, …). Full list at developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacycollecteddatatypes/nsprivacycollecteddatatype.",
+          "minLength": 1,
+          "pattern": "^NSPrivacyCollectedDataType[A-Za-z0-9]+$"
+        },
+        "NSPrivacyCollectedDataTypeLinked": {
+          "type": "boolean",
+          "description": "Whether the collected data is linked to the user's identity."
+        },
+        "NSPrivacyCollectedDataTypeTracking": {
+          "type": "boolean",
+          "description": "Whether the collected data is used for tracking as defined by App Tracking Transparency. If true, NSPrivacyTracking must also be true."
+        },
+        "NSPrivacyCollectedDataTypePurposes": {
+          "type": "array",
+          "description": "Reasons this data is collected.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising",
+              "NSPrivacyCollectedDataTypePurposeDeveloperAdvertising",
+              "NSPrivacyCollectedDataTypePurposeAnalytics",
+              "NSPrivacyCollectedDataTypePurposeProductPersonalization",
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality",
+              "NSPrivacyCollectedDataTypePurposeOther"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

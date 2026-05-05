@@ -29,7 +29,7 @@ Your Vercel App (web)
 
 ## Basic WKWebView Setup
 
-This loads your Vercel-deployed web app inside a native iOS wrapper.
+This loads your Vercel-deployed web app inside a native iOS shell — the foundation of Wrap mode.
 
 ```swift
 import SwiftUI
@@ -245,9 +245,9 @@ class Coordinator: NSObject, WKNavigationDelegate {
 
 ---
 
-## Hybrid Architecture: Web + Native Screens
+## Bridge Architecture: Web + Native Screens
 
-The progressive migration approach — some screens are web, some are native.
+This is the Bridge-mode pattern — a progressive migration approach where some screens are web (loaded in WKWebView) and some are native SwiftUI. New code should call this pattern "Bridge" rather than the older "hybrid" label.
 
 ```swift
 struct HybridApp: View {

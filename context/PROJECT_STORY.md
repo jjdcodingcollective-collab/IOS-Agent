@@ -1,6 +1,6 @@
 # Project Story
 
-Last curated: 2026-05-04 (Phase E complete)
+Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 sub-steps 6.1 + 6.7 shipped)
 
 ## Narrative
 
@@ -60,8 +60,12 @@ The Tier 2/3/4 niche tail closed in three reviewable commits: BUILD-23
 (UIKit), BUILD-24/25 (C#, Dart/Flutter), and BUILD-27/28/30 (C++ interop,
 Rust FFI, Go/Ruby/PHP). The `docs/` guide now spans **JavaScript/TypeScript,
 Kotlin, Java, Python, C#, Dart/Flutter, and Go/Ruby/PHP** as source
-languages, plus operational depth on ObjC, C++, and Rust interop, UIKit
-for non-greenfield codebases, and an App Store operations checklist.
+languages **for documentation** — i.e. each chapter teaches Swift to a
+developer arriving from that language. This is distinct from converter
+input scope, which is locked to web codebases (HTML/CSS/JS/TS) for the
+MVP per `docs/mvp-scope.md`. Operational depth on ObjC, C++, and Rust
+interop, UIKit for non-greenfield codebases, and an App Store
+operations checklist round out the docs.
 
 With Phase E complete, the active roadmap narrows back to a single track:
 **wrapper Phase 4 (conversational polish) and Phase 5 (`--open-pr` via
@@ -69,3 +73,63 @@ With Phase E complete, the active roadmap narrows back to a single track:
 place. Brand alignment is now resolved in favour of the broad scope; the
 README "Scope" section reflects the wider language coverage and the
 remaining-backlog line was replaced with a "Phase E complete" callout.
+
+A third track opened on 2026-05-05: a senior-iOS-architect review of the
+whole concept produced a 34-item MVP gap analysis (saved to
+`/storage/outputs/ios-agent/MVP-Gap-Analysis.md`) — 27 BLOCKING + 7 AT-RISK
+items spanning scope ambiguity, App Store compliance gaps (privacy
+manifest, ATT, SIWA, ATS, usage strings, encryption, 4.2 minimum
+functionality, 4.7/2.5.2 runtime-code), tooling-stack drift risk, and
+report design. The binding Definition of Done is hard: actual App Store
+approval of a tool-converted reference web app. The plan
+(`plans/mvp-tier-0-tier-1.md`) executes the first eight items in
+dependency order: Tier 0 (locks scope, no engineering) and Tier 1 (the
+foundational engineering spine — scanner → report → Xcode gen — which
+every later compliance module reuses).
+
+**Tier 0 shipped 2026-05-05** in five commits. Step 1 produced
+`docs/mvp-scope.md`: MVP is web → Wrap only, with an explicit exclusions
+list (Java, Kotlin, Python, Bridge, Port, UI translation) and a
+seven-criteria Definition of Done. Step 2 added the data-driven
+`config/compatibility-matrix.yaml` (18 combinations across 6 source
+archetypes × 3 target modes; only `web × wrap` will ever be `supported:
+true` and even that flips on only after App Store approval) plus a
+minimal-subset YAML loader (`wrapper/compatibility.py`) that the wrapper
+now consults at start-up via `assert_supported()`; both `convert` and
+`convert-from-github` gained a `--allow-unsupported` dev-override flag.
+Step 3 renamed the conversion modes everywhere: "WKWebView wrapper" →
+**Wrap**, "semi-native hybrid" → **Bridge**, "fully native" → **Port** —
+the new canonical names live in `docs/glossary.md` and propagate through
+README, transition-overview, webview-guide, and testing-guide. Step 4
+mandated the tooling stack via `docs/adr/0001-tooling-stack.md` (the
+project's first ADR): Capacitor, tree-sitter, swift-syntax, XcodeGen
+default with Tuist opt-in, J2ObjC + Skip + KMM deferred to Phase 2,
+quarterly review, and a "forbidden without superseding ADR" list that
+forbids in-house parser reinvention. Step 5 removed Python from the MVP
+supported-source list; an audit confirmed no Python detection code paths
+exist in the converter, so no `EXPERIMENTAL_PYTHON` flag was needed —
+the matrix gate is sufficient.
+
+**Tier 1 Step 6 began the same day.** The sub-plan
+(`plans/tier-1-step-6-privacy-scanner.md`) is the foundation that ATT,
+SIWA, ATS, usage strings, and the pre-flight scanner all reuse. Two
+sub-steps shipped: 6.1 produced `config/apple-required-reason-apis.yaml`
+— a versioned, data-driven catalogue of Apple's five required-reason API
+categories (UserDefaults, FileTimestamp, SystemBootTime, DiskSpace,
+ActiveKeyboards) with every approved reason code, captured 2026-05-05
+from the canonical Apple URL via Firecrawl. The file maps web-archetype
+detection patterns (`localStorage`, `sessionStorage`,
+`navigator.storage.estimate`, `@capacitor/preferences`,
+`@capacitor/filesystem`, `Filesystem.stat`) to their target Apple
+categories so the future scanner can do source-side detection without
+parsing emitted Swift; native-API patterns are also listed for the
+Bridge/Port phases. Notable deliberate exclusion: `performance.now()` is
+not flagged because WKWebView does not route it through
+`mach_absolute_time`. Step 6.7 produced
+`config/apple-privacy-manifest.schema.json` — a derived JSON Schema
+(Apple does not publish a formal one) for validating
+`PrivacyInfo.xcprivacy` after `plistlib` decoding; it enums the five
+categories, all 17 reason codes, and the six collection purposes, and
+uses conditional `allOf` rules so invalid (category, reason_code) pairs
+fail validation. Sub-steps 6.2 (scanner core), 6.3 (manifest generator),
+6.4 (override schema), 6.5 (tests), and 6.6 (CLI wiring) are next.

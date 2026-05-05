@@ -4,7 +4,7 @@
 
 **Who this is for:** Web developers who build with modern frameworks (React, Next.js, Vite), deploy on Vercel, and are now bringing their products to native iOS.
 
-**What this covers:** The full journey from web to native — environment setup, Swift fundamentals mapped to web concepts, architecture translation, hybrid approaches with WebViews, App Store deployment, and everything in between. Plus a working pipeline that takes your TypeScript codebase and produces a buildable Swift/SwiftUI project.
+**What this covers:** The full journey from web to native — environment setup, Swift fundamentals mapped to web concepts, architecture translation, WebView-based shells (Wrap / Bridge), App Store deployment, and everything in between. Plus a working pipeline that takes your TypeScript codebase and produces a buildable Swift/SwiftUI project.
 
 ---
 
@@ -44,6 +44,9 @@ Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md
 ## Table of Contents
 
 ### Getting Started
+- [MVP Scope](docs/mvp-scope.md) — Authoritative reference for what's in and out of MVP
+- [Glossary](docs/glossary.md) — Canonical terms (Wrap / Bridge / Port mode names, archetypes, compliance)
+- [ADR 0001 — Tooling Stack](docs/adr/0001-tooling-stack.md) — Mandated tooling, version policy, forbidden reinvention
 - [Web-to-iOS Transition Overview](docs/01-getting-started/transition-overview.md) — Strategy, timeline, and decision framework
 - [Environment Setup](docs/01-getting-started/environment-setup.md) — Xcode, tooling, certificates, and simulators
 
@@ -101,7 +104,7 @@ Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md
 
 **New to iOS?** Start with the [Transition Overview](docs/01-getting-started/transition-overview.md), then work through the [Environment Setup](docs/01-getting-started/environment-setup.md) and [Swift for Web Developers](docs/02-swift-fundamentals/swift-for-web-devs.md).
 
-**Building a hybrid app?** Jump to [WebView & Hybrid Integration](docs/06-webview-hybrid/webview-guide.md) for strategies on wrapping your existing web app in a native shell.
+**Building a Wrap or Bridge app?** Jump to [WebView & Hybrid Integration](docs/06-webview-hybrid/webview-guide.md) for strategies on embedding your existing web app in a native shell.
 
 **Ready to ship?** The [Deployment Guide](docs/09-deployment/deployment-guide.md) maps your Vercel workflow to TestFlight and App Store Connect.
 
@@ -141,6 +144,21 @@ The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expandi
 ---
 
 ## Last Updated
+
+**2026-05-05** *(MVP gap analysis kicked off; Tier 0 complete; Tier 1 Step 6 partial)* — Senior-iOS-architect review of the whole concept produced a 34-item MVP gap analysis (`/storage/outputs/ios-agent/MVP-Gap-Analysis.md`): 27 BLOCKING + 7 AT-RISK items, binding Definition of Done = actual App Store approval of a tool-converted reference web app. Two new plans landed: `plans/mvp-tier-0-tier-1.md` (parent) and `plans/tier-1-step-6-privacy-scanner.md` (sub-plan).
+
+Tier 0 (5 steps, decisions + docs only) shipped end-to-end:
+- Step 1: `docs/mvp-scope.md` — MVP locked to web → Wrap only; explicit exclusions for Java, Kotlin, Python, Bridge, Port, UI translation; 7-criteria Definition of Done; marketing-compliance section bans deprecated mode names and "convert any codebase" copy.
+- Step 2: `config/compatibility-matrix.yaml` (18 combinations across 6 source archetypes × 3 target modes; all `supported: false` until App Store approval) + `wrapper/compatibility.py` (minimal-subset YAML loader, no PyYAML dep, exports `Combination`, `CompatibilityMatrix`, `assert_supported()`, `UnsupportedCombination`) + `wrapper/__main__.py` integration: both `convert` and `convert-from-github` gate on `("web", "wrap")` before any work, with a `--allow-unsupported` dev override that prints a warning and proceeds; 9 new tests in `wrapper/tests/test_compatibility.py` covering the parser, the gate, and marketing-protection invariants (`python → wrap` always blocked).
+- Step 3: Mode rename — "WKWebView wrapper" → **Wrap**, "semi-native hybrid" → **Bridge**, "fully native" → **Port**. Canonical definitions live in new `docs/glossary.md`; rename propagated through `README.md`, `docs/01-getting-started/transition-overview.md`, `docs/06-webview-hybrid/webview-guide.md`, and `docs/07-testing/testing-guide.md`.
+- Step 4: `docs/adr/0001-tooling-stack.md` — the project's first ADR. Mandates Capacitor, tree-sitter, swift-syntax + swift-format, XcodeGen (default) / Tuist (opt-in), SwiftLint + SwiftFormat + periphery, J2ObjC (Phase 2), Skip + KMM (Phase 2). Quarterly review; latest-2-Xcode CI gate. "Forbidden without superseding ADR" list explicitly forbids in-house parser reinvention. Alternatives considered (in-house parser, React Native / Flutter as host, Cordova, pure-LLM) all rejected with reasoning.
+- Step 5: Python removed from MVP supported source languages; audit confirmed no Python detection code paths exist in the converter, so the matrix gate is sufficient — no `EXPERIMENTAL_PYTHON` flag needed.
+
+Tier 1 Step 6 (privacy scanner + manifest generator) is in progress. Two sub-steps shipped:
+- Step 6.1: `config/apple-required-reason-apis.yaml` — versioned, data-driven catalogue of Apple's five required-reason API categories (UserDefaults, FileTimestamp, SystemBootTime, DiskSpace, ActiveKeyboards) with every approved reason code and a clear update policy. Captured 2026-05-05 from the canonical Apple URL. Maps web-archetype detection patterns (`localStorage`, `sessionStorage`, `navigator.storage.estimate`, `@capacitor/preferences`, `@capacitor/filesystem`, `Filesystem.stat`) to their target categories; native-API patterns are listed for future Bridge/Port phases. Deliberate exclusion: `performance.now()` is not flagged because WKWebView does not route it through `mach_absolute_time`.
+- Step 6.7: `config/apple-privacy-manifest.schema.json` — a derived JSON Schema (Apple does not publish a formal one) for validating `PrivacyInfo.xcprivacy` after `plistlib` decoding. Enums the 5 categories, all 17 reason codes, and the 6 collection purposes; conditional `allOf` rules reject invalid (category, reason_code) pairs (e.g. using `CA92.1` under `FileTimestamp`). Documents source URL, capture date, update policy, and related files in `x-*` extension fields per ADR 0001's quarterly-review mandate.
+
+Sub-steps 6.2 (scanner core), 6.3 (manifest generator), 6.4 (override schema), 6.5 (tests), 6.6 (CLI wiring) are next, in that order. After Step 6 closes: Step 7 (three-layer report schema) and Step 8 (Xcode project generation via XcodeGen / Tuist).
 
 **2026-05-04** *(Wrapper Phase 5 shipped — `--open-pr` via `gh pr create`; wrapper roadmap complete)* — New module `wrapper/pr_ops.py` adds `gh_available()` (checks `shutil.which("gh")` + `gh auth status`, returns a clear install/login hint on failure) and `open_pr(repo_path, *, base, head, title, body_path)` which invokes `gh pr create` from inside the repo with a 60s timeout, captures stdout/stderr, and extracts the PR URL via regex (last `https://github.com/.../pull/<n>` match wins). New `--open-pr` flag on `convert-from-github` (off by default — opening a PR is irreversible: notifications, CI, teammates) reuses the Phase 4 `(base, head, title, body-file)` tuple, gates on a successful push, and refuses the incoherent `--no-push --open-pr` combination at the argparse layer. Existing-PR collisions surface gh's own stderr ("a pull request for branch X already exists"). Read-only fallback preserved exactly as Phase 3 left it: a failed push still prints the manual `git push -u` retry instruction and never attempts a PR. 15 new unit tests using `unittest.mock.patch` for `subprocess.run` and `shutil.which` — no real `gh` calls in tests; 72 wrapper tests total. Plan: `plans/wrapper-phase-5-open-pr.md`. **The wrapper roadmap is now complete.**
 

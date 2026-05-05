@@ -19,6 +19,7 @@ import shutil
 import sys
 from pathlib import Path
 
+from .compatibility import UnsupportedCombination, assert_supported
 from .explainer import format_branch_explainer
 from .git_ops import (
     GitError,
@@ -55,7 +56,27 @@ def _confirm(prompt: str, assume_yes: bool) -> bool:
     return answer in ("y", "yes")
 
 
+def _gate_combination(source: str, target: str, *, allow_unsupported: bool) -> int | None:
+    """Check the compatibility matrix. Returns None to proceed, or an exit code."""
+    try:
+        assert_supported(source, target)
+    except UnsupportedCombination as exc:
+        if allow_unsupported:
+            print(f"warning: --allow-unsupported set; proceeding despite: {exc}",
+                  file=sys.stderr)
+            return None
+        print(f"error: {exc}", file=sys.stderr)
+        print("Pass --allow-unsupported to override during development.",
+              file=sys.stderr)
+        return 2
+    return None
+
+
 def cmd_convert(args: argparse.Namespace) -> int:
+    gate = _gate_combination("web", "wrap", allow_unsupported=args.allow_unsupported)
+    if gate is not None:
+        return gate
+
     source = Path(args.source).resolve()
     if not source.is_dir():
         print(f"error: '{source}' is not a directory", file=sys.stderr)
@@ -145,6 +166,10 @@ def _do_open_pr(
 
 def cmd_convert_from_github(args: argparse.Namespace) -> int:
     """Clone a GitHub repo, convert it, and commit the output to a local branch."""
+    gate = _gate_combination("web", "wrap", allow_unsupported=args.allow_unsupported)
+    if gate is not None:
+        return gate
+
     repo_url = args.repo_url
     # --yes implies --push (auto-yes on every prompt), unless the user
     # explicitly asked for --no-push.
@@ -386,6 +411,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Suppress the metadata banner and educational mode "
              "(power-user output; the actionable lines remain).",
     )
+    convert.add_argument(
+        "--allow-unsupported",
+        action="store_true",
+        help="Bypass the compatibility-matrix gate. Development override only; "
+             "see docs/mvp-scope.md and config/compatibility-matrix.yaml.",
+    )
     convert.set_defaults(func=cmd_convert)
 
     gh = sub.add_parser(
@@ -470,6 +501,12 @@ def build_parser() -> argparse.ArgumentParser:
              "to open the pull request. Off by default. Requires the GitHub "
              "CLI (`gh`) to be installed and authenticated. Cannot be "
              "combined with --no-push.",
+    )
+    gh.add_argument(
+        "--allow-unsupported",
+        action="store_true",
+        help="Bypass the compatibility-matrix gate. Development override only; "
+             "see docs/mvp-scope.md and config/compatibility-matrix.yaml.",
     )
     gh.set_defaults(func=cmd_convert_from_github, open_pr=False)
 

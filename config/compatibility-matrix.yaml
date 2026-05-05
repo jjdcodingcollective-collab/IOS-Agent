@@ -1,0 +1,242 @@
+# Source x Target Compatibility Matrix
+#
+# Authoritative reference: docs/mvp-scope.md
+# Source plan: plans/mvp-tier-0-tier-1.md (Step 2)
+#
+# This file gates which (source_archetype, target_mode) combinations the tool
+# will accept. The CLI/UI MUST load this file at startup and refuse any
+# combination not marked supported: true.
+#
+# DO NOT mark a combination supported: true unless its phase has shipped
+# AND its reference app has passed App Store review (see docs/mvp-scope.md
+# section 3, Definition of Done).
+#
+# To change scope, edit docs/mvp-scope.md first, then update this file in
+# the same PR.
+
+schema_version: 1
+
+# -----------------------------------------------------------------------------
+# Source archetypes
+# -----------------------------------------------------------------------------
+# An archetype is a class of input the tool can recognise. Detection is the
+# tool's responsibility; this file declares which archetypes exist and how
+# they map to phases.
+source_archetypes:
+  web:
+    label: Web codebase
+    description: >-
+      HTML/CSS/JS/TS front-end source or built front-end bundle. Includes
+      common bundler outputs (Vite, Webpack, Next.js static export, CRA,
+      Astro, etc.) and common front-end frameworks (React, Vue, Svelte,
+      Angular, vanilla) consumed as WebView content, not as transpilation
+      targets.
+    detection_hints:
+      - package.json with web framework dependency
+      - index.html at project root or in dist/build output
+      - Vite/Webpack/Next.js/Astro configuration file
+    phase: 1
+
+  java:
+    label: Java source
+    description: Java source intended for logic-only transpilation via J2ObjC.
+    phase: 2
+
+  kotlin:
+    label: Kotlin source
+    description: Kotlin source intended for logic-only transpilation via Skip / KMM.
+    phase: 2
+
+  typescript_logic:
+    label: TypeScript (logic only)
+    description: >-
+      Server-side or shared TypeScript libraries (no JSX/UI) for LLM-assisted
+      logic translation to Swift. Distinct from web archetype, which embeds
+      TS as WebView content rather than transpiling it.
+    phase: 5
+
+  python:
+    label: Python source
+    description: >-
+      Python source. Statically infeasible to fully transpile; reserved for
+      LLM-assisted, manual-review-required mode in a later phase.
+    phase: 5
+
+  objc:
+    label: Objective-C source
+    description: >-
+      Not a transpilation target; Swift interops natively. Listed for
+      completeness only.
+    phase: null
+
+# -----------------------------------------------------------------------------
+# Target modes
+# -----------------------------------------------------------------------------
+# Per docs/mvp-scope.md and plans/mvp-tier-0-tier-1.md (Step 3), the MVP-era
+# names are Wrap / Bridge / Port. Older names (wrapper / hybrid / fully native)
+# are deprecated.
+target_modes:
+  wrap:
+    label: Wrap
+    description: >-
+      Capacitor-based iOS host project that loads the developer's web app
+      inside a WKWebView, with App Store compliance scaffolding generated
+      alongside.
+    phase: 1
+
+  bridge:
+    label: Bridge
+    description: >-
+      Native iOS shell with selective WebView screens; per-route conversion
+      decision engine determines which screens are native vs WebView.
+    phase: 3
+
+  port:
+    label: Port
+    description: >-
+      Full native Swift/SwiftUI iOS app from transpiled source. Narrow domain
+      scope (CRUD, simple forms) only.
+    phase: 4
+
+# -----------------------------------------------------------------------------
+# Combinations
+# -----------------------------------------------------------------------------
+# Every (source, target) pair the tool might be asked to produce, with its
+# support status. The tool MUST iterate this list when validating a user
+# request.
+#
+# Fields:
+#   source         - key from source_archetypes
+#   target         - key from target_modes
+#   supported      - true only when the phase has shipped AND its reference
+#                    app has passed App Store review
+#   phase          - the phase that gates supported: true. null for combos
+#                    that are nonsensical (e.g. python -> wrap).
+#   reason         - required when supported: false; explains why
+#   reference_repo - optional URL to a reference repo that demonstrates this
+#                    combination
+combinations:
+  # ---- Phase 1 (MVP) ----
+  - source: web
+    target: wrap
+    supported: false
+    phase: 1
+    reason: >-
+      Phase 1 in active development. Will flip to supported: true when the
+      reference web app passes App Store review per docs/mvp-scope.md
+      Definition of Done.
+    reference_repo: null
+
+  - source: web
+    target: bridge
+    supported: false
+    phase: 3
+    reason: Bridge mode is Phase 3; not yet in scope.
+
+  - source: web
+    target: port
+    supported: false
+    phase: 4
+    reason: >-
+      Port mode requires automatic UI translation, which is unsolved and
+      not committed to a phase. See docs/mvp-scope.md section 2.
+
+  # ---- Phase 2 (logic-only transpilation, deferred) ----
+  - source: java
+    target: wrap
+    supported: false
+    phase: null
+    reason: >-
+      Nonsensical combination: Java source has no web layer to wrap.
+
+  - source: java
+    target: bridge
+    supported: false
+    phase: 3
+    reason: Bridge mode is Phase 3; Java logic transpilation is Phase 2.
+
+  - source: java
+    target: port
+    supported: false
+    phase: 4
+    reason: >-
+      Java logic transpilation lands in Phase 2 as a Swift Package; full
+      Port-mode app generation is Phase 4.
+
+  - source: kotlin
+    target: wrap
+    supported: false
+    phase: null
+    reason: Nonsensical combination: Kotlin source has no web layer to wrap.
+
+  - source: kotlin
+    target: bridge
+    supported: false
+    phase: 3
+    reason: Bridge mode is Phase 3; Kotlin logic transpilation is Phase 2.
+
+  - source: kotlin
+    target: port
+    supported: false
+    phase: 4
+    reason: >-
+      Kotlin logic transpilation lands in Phase 2 as a Swift Package; full
+      Port-mode app generation is Phase 4.
+
+  # ---- Phase 5 (LLM-assisted, manual-review-required) ----
+  - source: typescript_logic
+    target: wrap
+    supported: false
+    phase: null
+    reason: >-
+      Nonsensical combination: server/library TypeScript has no web UI to
+      wrap. (For TS web apps, use the web archetype instead.)
+
+  - source: typescript_logic
+    target: bridge
+    supported: false
+    phase: 5
+    reason: TS logic transpilation is Phase 5.
+
+  - source: typescript_logic
+    target: port
+    supported: false
+    phase: 5
+    reason: TS logic transpilation is Phase 5.
+
+  - source: python
+    target: wrap
+    supported: false
+    phase: null
+    reason: Nonsensical combination: Python source has no web layer to wrap.
+
+  - source: python
+    target: bridge
+    supported: false
+    phase: 5
+    reason: Python support is Phase 5, marketed as assisted/manual-review-required.
+
+  - source: python
+    target: port
+    supported: false
+    phase: 5
+    reason: Python support is Phase 5, marketed as assisted/manual-review-required.
+
+  # ---- Objective-C (not a transpilation target) ----
+  - source: objc
+    target: wrap
+    supported: false
+    phase: null
+    reason: Objective-C is not a transpilation target; use Swift interop directly.
+
+  - source: objc
+    target: bridge
+    supported: false
+    phase: null
+    reason: Objective-C is not a transpilation target; use Swift interop directly.
+
+  - source: objc
+    target: port
+    supported: false
+    phase: null
+    reason: Objective-C is not a transpilation target; use Swift interop directly.

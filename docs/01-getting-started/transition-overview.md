@@ -28,9 +28,9 @@ The biggest shift isn't the language — it's the **deployment model**. On the w
 
 There are three paths from web to iOS. Choose based on your timeline, team skills, and product requirements.
 
-### Strategy 1: WebView Wrapper (Fastest)
+### Strategy 1: Wrap (Fastest)
 
-Wrap your existing web app in a native iOS shell using `WKWebView`. Your web app runs inside a native container that can access some device features via JavaScript bridges.
+Wrap mode embeds your existing web app in a native iOS shell using `WKWebView` (the converter targets a Capacitor host project). Your web app runs inside a native container that can access some device features via JavaScript bridges.
 
 **When to choose this:**
 - You need an App Store presence quickly
@@ -41,32 +41,32 @@ Wrap your existing web app in a native iOS shell using `WKWebView`. Your web app
 **Trade-offs:**
 - Performance limited by WebView rendering
 - Limited access to native APIs without bridging
-- App Store reviewers may reject "thin" wrappers that add no native value
+- App Store reviewers may reject "thin" Wrap apps that add no native value (Guideline 4.2)
 - Users may notice it's not a "real" native app
 
-**Timeline:** 2-4 weeks for a basic wrapper with basic native features.
+**Timeline:** 2-4 weeks for a basic Wrap app with basic native features.
 
 See: [WebView & Hybrid Integration Guide](../06-webview-hybrid/webview-guide.md)
 
-### Strategy 2: Hybrid (Progressive Migration)
+### Strategy 2: Bridge (Progressive Migration)
 
-Start with a WebView wrapper, then incrementally replace web screens with native SwiftUI views. Your web app and native code coexist, and you migrate screen by screen.
+Bridge mode starts as a Wrap app, then incrementally replaces web screens with native SwiftUI views. Your web app and native code coexist, and you migrate screen by screen.
 
 **When to choose this:**
-- You want to ship something soon but go fully native eventually
+- You want to ship something soon but go fully native (Port) eventually
 - Different parts of your app have different performance requirements
 - You want to train your team on Swift while still shipping features
 
 **Trade-offs:**
 - Two codebases to maintain during transition
 - Complexity in routing between web and native screens
-- Need a clear migration plan to avoid "permanent hybrid" limbo
+- Need a clear migration plan to avoid "permanent Bridge" limbo
 
-**Timeline:** 1-2 months for initial hybrid, 3-6 months for significant native coverage.
+**Timeline:** 1-2 months for initial Bridge, 3-6 months for significant native coverage.
 
-### Strategy 3: Full Native Rebuild (Best Long-Term)
+### Strategy 3: Port (Best Long-Term)
 
-Build the iOS app from scratch in SwiftUI. Reuse your API layer and business logic concepts, but rewrite the UI and client-side logic in Swift.
+Port mode rebuilds the iOS app from scratch in SwiftUI. Reuse your API layer and business logic concepts, but rewrite the UI and client-side logic in Swift.
 
 **When to choose this:**
 - You need the best possible performance and UX
@@ -115,17 +115,19 @@ Not everything changes. You keep:
 
 ---
 
-## Decision Framework: Native vs. Hybrid vs. WebView
+## Decision Framework: Wrap vs. Bridge vs. Port
 
 ```
 Do you need App Store presence in < 1 month?
 ├── Yes → Do you need native features (camera, AR, push)?
-│   ├── Yes → Hybrid (WebView + targeted native screens)
-│   └── No  → WebView Wrapper
+│   ├── Yes → Bridge (WebView + targeted native screens)
+│   └── No  → Wrap (WKWebView host)
 └── No  → Is mobile your primary platform?
-    ├── Yes → Full Native Rebuild
-    └── No  → Hybrid (progressive migration)
+    ├── Yes → Port (full native rebuild)
+    └── No  → Bridge (progressive migration)
 ```
+
+> **Mode names:** Wrap / Bridge / Port are the canonical names per `docs/mvp-scope.md`. The older terms "wrapper," "hybrid," and "fully native" are deprecated when used as mode labels — they may still appear historically in the codebase but should not be introduced in new content.
 
 ---
 

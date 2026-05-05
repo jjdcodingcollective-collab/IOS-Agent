@@ -1,0 +1,262 @@
+# Apple Required-Reason API Catalogue
+#
+# Source of truth (Apple): https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype
+# Captured on: 2026-05-05
+# Apple categories declared at: iOS 17.0+, iPadOS 17.0+, macOS 14.0+, tvOS 17.0+, visionOS 1.0+, watchOS 10.0+
+#
+# This file backs:
+#   - converter/compliance/api_scanner.py     (source-side detection)
+#   - converter/compliance/privacy_manifest.py (PrivacyInfo.xcprivacy emission)
+#
+# Update policy: per docs/adr/0001-tooling-stack.md, this file is reviewed
+# quarterly. Apple expanded the privacy manifest spec twice in 2024; treat
+# this catalogue as time-versioned data, not code.
+#
+# How to add coverage:
+#   1. Find the Apple category and reason code in the source-of-truth URL above.
+#   2. Add the entry under the matching category's `patterns:` list.
+#   3. Update the captured_on field at the top.
+#   4. Add a fixture under converter/compliance/tests/fixtures/.
+#   5. Run the scanner test suite.
+
+schema_version: 1
+captured_on: 2026-05-05
+spec_url: https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype
+
+# -----------------------------------------------------------------------------
+# Categories
+# -----------------------------------------------------------------------------
+# Each category corresponds to an NSPrivacyAccessedAPIType value Apple defines.
+# - native_apis: the Swift/ObjC API names Apple lists for that category. Used
+#   by future emitted-Swift scanning passes (Bridge/Port phases).
+# - reason_codes: every approved reason Apple has published, with a short
+#   summary (the canonical text comes from spec_url; the summary here is for
+#   developer triage).
+# - patterns: heuristics that flag *source-side* (web archetype) usage that
+#   implies the category will be invoked at runtime once the web app runs
+#   inside the Capacitor host. Pattern types:
+#     js_api          — a JS/TS API name; matched as a word boundary in source
+#     ts_import       — an ES module import path
+#     capacitor_plugin — a Capacitor plugin id (declared in capacitor.config.* or imported)
+#     native_api      — a Swift/ObjC API name (used in Bridge/Port phases)
+
+categories:
+
+  # ---------------------------------------------------------------------------
+  - id: NSPrivacyAccessedAPICategoryUserDefaults
+    label: User Defaults
+    native_apis:
+      - UserDefaults
+    reason_codes:
+      - code: CA92.1
+        summary: >-
+          Read/write user defaults accessible only to the app itself.
+        default_for: app
+        notes: Most common Wrap-mode reason. Default for Capacitor Preferences plugin.
+      - code: 1C8F.1
+        summary: >-
+          Read/write user defaults shared via App Group with extensions/App Clips.
+        default_for: null
+        notes: Required when the app uses App Groups.
+      - code: C56D.1
+        summary: >-
+          Third-party SDK wrapping user defaults APIs on behalf of the host app.
+        default_for: null
+        notes: For SDK authors only; not applicable to Wrap-mode app manifests.
+      - code: AC6B.1
+        summary: >-
+          MDM managed app configuration via com.apple.configuration.managed
+          / com.apple.feedback.managed keys.
+        default_for: null
+        notes: Only for MDM-aware apps.
+    patterns:
+      - pattern_type: js_api
+        pattern: localStorage
+        default_reason_code: CA92.1
+        notes: WKWebView's localStorage maps to NSURLCache/UserDefaults-adjacent storage; Capacitor Preferences uses UserDefaults directly.
+      - pattern_type: js_api
+        pattern: sessionStorage
+        default_reason_code: CA92.1
+        notes: Same justification as localStorage in the WKWebView container.
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor/preferences'
+        default_reason_code: CA92.1
+        notes: Capacitor Preferences plugin is documented to use UserDefaults on iOS.
+      - pattern_type: ts_import
+        pattern: '@capacitor/preferences'
+        default_reason_code: CA92.1
+        notes: Detect via import statement in JS/TS source.
+      - pattern_type: native_api
+        pattern: UserDefaults
+        default_reason_code: CA92.1
+        notes: For future Bridge/Port emitted-Swift scanning.
+
+  # ---------------------------------------------------------------------------
+  - id: NSPrivacyAccessedAPICategoryFileTimestamp
+    label: File Timestamp
+    native_apis:
+      - creationDate
+      - modificationDate
+      - fileModificationDate
+      - contentModificationDateKey
+      - creationDateKey
+      - getattrlist
+      - getattrlistbulk
+      - fgetattrlist
+      - stat
+      - fstat
+      - fstatat
+      - lstat
+      - getattrlistat
+    reason_codes:
+      - code: DDA9.1
+        summary: Display file timestamps to the user (no off-device transmission).
+        default_for: app
+        notes: Most common reason for file-browser-style apps.
+      - code: C617.1
+        summary: >-
+          Access timestamps/size/metadata of files inside the app, App Group,
+          or CloudKit container.
+        default_for: null
+        notes: Default for Capacitor Filesystem plugin within app sandbox.
+      - code: 3B52.1
+        summary: >-
+          Access timestamps/metadata of files the user explicitly granted
+          access to (e.g. via document picker).
+        default_for: null
+      - code: 0A2A.1
+        summary: Third-party SDK wrapping file timestamp APIs.
+        default_for: null
+        notes: SDK authors only.
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor/filesystem'
+        default_reason_code: C617.1
+        notes: Capacitor Filesystem plugin reads file metadata (mtime, ctime, size).
+      - pattern_type: ts_import
+        pattern: '@capacitor/filesystem'
+        default_reason_code: C617.1
+      - pattern_type: js_api
+        pattern: 'Filesystem.stat'
+        default_reason_code: C617.1
+        notes: Direct call to Capacitor Filesystem's stat() method.
+      - pattern_type: native_api
+        pattern: 'FileAttributeKey.creationDate'
+        default_reason_code: C617.1
+      - pattern_type: native_api
+        pattern: 'FileAttributeKey.modificationDate'
+        default_reason_code: C617.1
+      - pattern_type: native_api
+        pattern: 'URLResourceKey.contentModificationDateKey'
+        default_reason_code: C617.1
+      - pattern_type: native_api
+        pattern: 'URLResourceKey.creationDateKey'
+        default_reason_code: C617.1
+
+  # ---------------------------------------------------------------------------
+  - id: NSPrivacyAccessedAPICategorySystemBootTime
+    label: System Boot Time
+    native_apis:
+      - systemUptime
+      - mach_absolute_time
+    reason_codes:
+      - code: 35F9.1
+        summary: >-
+          Measure elapsed time between in-app events / drive timers.
+          Information may not be sent off-device (with the in-app
+          elapsed-time exception).
+        default_for: app
+        notes: Most common reason for performance instrumentation.
+      - code: 8FFB.1
+        summary: >-
+          Calculate absolute timestamps for in-app events (e.g. UIKit/AVFAudio
+          timestamps). The boot time itself must not leave the device.
+        default_for: null
+      - code: 3D61.1
+        summary: >-
+          Include boot time in an opt-in user-submitted bug report; must be
+          prominently displayed to the user.
+        default_for: null
+    patterns:
+      - pattern_type: native_api
+        pattern: 'ProcessInfo.systemUptime'
+        default_reason_code: 35F9.1
+      - pattern_type: native_api
+        pattern: 'mach_absolute_time'
+        default_reason_code: 35F9.1
+      # Note: web `performance.now()` does NOT call mach_absolute_time inside
+      # WKWebView, so we deliberately do not flag it. This is a deliberate
+      # narrow-coverage choice for the web archetype.
+
+  # ---------------------------------------------------------------------------
+  - id: NSPrivacyAccessedAPICategoryDiskSpace
+    label: Disk Space
+    native_apis:
+      - volumeAvailableCapacityKey
+      - volumeAvailableCapacityForImportantUsageKey
+      - volumeAvailableCapacityForOpportunisticUsageKey
+      - volumeTotalCapacityKey
+      - systemFreeSize
+      - systemSize
+      - statfs
+      - statvfs
+      - fstatfs
+      - fstatvfs
+      - getattrlist
+      - fgetattrlist
+      - getattrlistat
+    reason_codes:
+      - code: 85F4.1
+        summary: Display disk space to the user; not sent off-device.
+        default_for: app
+      - code: E174.1
+        summary: >-
+          Check whether enough disk space is available before writing files,
+          or behave differently when low. Behaviour must be observable to
+          users.
+        default_for: null
+        notes: Common for download-managers, media-cache apps.
+      - code: 7D9E.1
+        summary: Include disk space in an opt-in bug report.
+        default_for: null
+      - code: B728.1
+        summary: >-
+          Health research apps detecting low disk space affecting research
+          data collection.
+        default_for: null
+        notes: Only allowed for apps that comply with App Store §5.1.3.
+    patterns:
+      - pattern_type: js_api
+        pattern: 'navigator.storage.estimate'
+        default_reason_code: E174.1
+        notes: navigator.storage.estimate() in WKWebView is implemented via volumeAvailableCapacityKey on iOS.
+      - pattern_type: native_api
+        pattern: 'URLResourceKey.volumeAvailableCapacityKey'
+        default_reason_code: 85F4.1
+      - pattern_type: native_api
+        pattern: 'URLResourceKey.volumeAvailableCapacityForImportantUsageKey'
+        default_reason_code: 85F4.1
+
+  # ---------------------------------------------------------------------------
+  - id: NSPrivacyAccessedAPICategoryActiveKeyboards
+    label: Active Keyboards
+    native_apis:
+      - activeInputModes
+    reason_codes:
+      - code: 3EC4.1
+        summary: >-
+          Custom keyboard apps reading active keyboards. Providing a systemwide
+          custom keyboard must be the app's primary functionality.
+        default_for: null
+        notes: Only allowed for keyboard apps. Wrap-mode apps almost never qualify.
+      - code: 54BD.1
+        summary: >-
+          Adapt the UI based on the active keyboard. App must have text fields
+          and observably differ based on active keyboards.
+        default_for: null
+    patterns:
+      - pattern_type: native_api
+        pattern: 'UITextInputMode.activeInputModes'
+        default_reason_code: 54BD.1
+      # No JS-side patterns: WKWebView web apps cannot meaningfully access
+      # UITextInputMode without a custom Capacitor plugin we don't ship.

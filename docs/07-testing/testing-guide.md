@@ -275,7 +275,7 @@ open -a Instruments
 
 ## Debugging WebView Content
 
-If you're using the hybrid approach, you can debug your web content inside WKWebView using Safari:
+If you're shipping a Wrap or Bridge app, you can debug your web content inside WKWebView using Safari:
 
 1. On your Mac: **Safari → Settings → Advanced → Show Develop menu**
 2. On Simulator/device: **Settings → Safari → Advanced → Web Inspector** (ON)
