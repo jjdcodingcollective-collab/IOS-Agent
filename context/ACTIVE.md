@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-04 (revised — Wrapper Phase 4 shipped: conversational polish)
+Last curated: 2026-05-04 (revised — Wrapper Phase 5 shipped: `--open-pr`; wrapper roadmap complete)
 
 ## Current State
 
@@ -15,7 +15,7 @@ GitHub repos, and creates a conversion branch is operational through Phase 3:
 - Phase 2 — clone + convert + local commit on a `Requires-more-review/` branch: ✅
 - Phase 3 — opt-in push to origin via `--push` / `--no-push` (default prompts): ✅
 - Phase 4 — conversational polish (pre-flight metadata banner, post-flight `gh pr create` + compare-URL fallback, educational "What's on this branch" block, `--brief` flag): ✅
-- Phase 5 — `--open-pr` via `gh pr create`: ⏳ next
+- Phase 5 — `--open-pr` via `gh pr create` (off by default, refuses `--no-push --open-pr`): ✅
 
 Real-world validation passed against `the-survival-bible` monorepo
 (`apps/mobile`, 42 files, **50/50 structural-validation pass**) after fixing
@@ -78,22 +78,28 @@ Source review: `plans/reviews/2026-05-04-language-transposition.md`.
 
 ## What's Next
 
-**Wrapper Phase 5.** Phase 4 (conversational polish) shipped 2026-05-04
-in three commits: `wrapper/repo_metadata.py` (pre-flight banner),
-`wrapper/post_flight.py` + `wrapper/explainer.py` (post-flight PR command
-+ compare-URL fallback + educational mode), and a `--brief` flag on both
-subcommands. 57 unit tests cover URL parsing, payload parsing, banner /
-PR-command formatting, and the explainer's two flavours; no test makes
-a real HTTP call. Phase 5 wires `--open-pr` via `gh pr create` (off by
-default) — it reuses the Phase 4 PR-command formatter, so the work is
-mostly threading `subprocess.run(["gh", "pr", "create", …])` plus a
-confirmation prompt before the irreversible action.
+**The wrapper roadmap is complete.** Phase 5 shipped 2026-05-04: new
+`wrapper/pr_ops.py` (gh detection + `open_pr()` invoking `gh pr create`
+with a 60s timeout and PR-URL regex extraction); `--open-pr` flag on
+`convert-from-github` (off by default, gated on a successful push,
+refuses `--no-push --open-pr` at the argparse layer); existing-PR
+collisions surface gh's own stderr; read-only fallback preserved
+exactly. 15 new tests using `mock.patch` for `subprocess.run` and
+`shutil.which` (no real gh calls); 72 wrapper tests total.
+
+Forward options the user may pick up next: (1) end-to-end smoke run
+through Phase 4 + Phase 5 against a real test repo to validate the
+banner/explainer/PR command in production output; (2) the
+still-open documentation question on converter source-language
+expansion (see `context/OPEN_QUESTIONS.md`); (3) any new track the
+user proposes — there is no auto-queued next phase.
 
 ## Relevant Knowledge Refs
 
 - `plans/gap-analysis-and-build-guide.md` — capability matrix and roadmap (all 15 BUILD items marked complete)
 - `plans/github-round-trip.md` — wrapper design + delivered command surface
 - `plans/wrapper-phase-4-conversational-polish.md` — Phase 4 sub-plan (shipped 2026-05-04)
+- `plans/wrapper-phase-5-open-pr.md` — Phase 5 sub-plan (shipped 2026-05-04)
 - `plans/agent-interaction-design.md` — three-surface model (CLI / wrapper / Claude Code)
 - `wrapper/git_ops.py` — clone, branch, commit, revision counter, update notes, push
 - `wrapper/orchestrator.py` — runs CLI as subprocess, parses reports into `ConversionResult`
@@ -101,8 +107,9 @@ confirmation prompt before the irreversible action.
 - `wrapper/repo_metadata.py` — Phase 4: GitHub URL parser + repo-metadata fetch + banner formatter
 - `wrapper/post_flight.py` — Phase 4: `gh pr create` formatter + compare-URL fallback
 - `wrapper/explainer.py` — Phase 4: educational "What's on this branch" block
-- `wrapper/__main__.py` — `python -m wrapper convert` and `convert-from-github` subcommands (with `--brief`)
-- `wrapper/tests/` — `test_repo_metadata.py` (33 tests) + `test_post_flight.py` (24 tests); run with `python3 -m unittest discover -s wrapper`
+- `wrapper/pr_ops.py` — Phase 5: `gh_available()` + `open_pr()` (invokes `gh pr create`, extracts PR URL)
+- `wrapper/__main__.py` — `python -m wrapper convert` and `convert-from-github` subcommands (with `--brief`, `--open-pr`)
+- `wrapper/tests/` — `test_repo_metadata.py` (33) + `test_post_flight.py` (24) + `test_pr_ops.py` (15); 72 total. Run with `python3 -m unittest discover -s wrapper`
 - `converter/rewriter/component_converter.py` — JSX→SwiftUI translator (arrow-leak 3-point fix)
 - `converter/validator/swift_checker.py` — pattern lint + optional swiftc -parse
 

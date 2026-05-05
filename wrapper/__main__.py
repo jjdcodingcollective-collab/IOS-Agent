@@ -28,7 +28,8 @@ from .git_ops import (
     push_branch,
 )
 from .orchestrator import run_conversion
-from .post_flight import format_post_flight
+from .post_flight import default_base_branch, format_post_flight
+from .pr_ops import gh_available, open_pr
 from .repo_metadata import (
     RepoMetadata,
     fetch_repo_metadata,
@@ -86,6 +87,60 @@ def cmd_convert(args: argparse.Namespace) -> int:
     print(format_triage(result))
 
     return 0 if result.success else 1
+
+
+def _do_open_pr(
+    *,
+    commit,
+    meta: RepoMetadata | None,
+    clone_dest: Path,
+    summary_path: str,
+    assume_yes: bool,
+) -> int:
+    """Phase 5: invoke `gh pr create` after a successful push.
+
+    Returns the exit code for the wrapper. On any failure of the PR step
+    we return 1 — the conversion + push already succeeded, but the user
+    asked for the PR to be opened, so silently exiting 0 would mislead.
+    """
+    ok, hint = gh_available()
+    if not ok:
+        print()
+        print(f"Cannot open PR: {hint}", file=sys.stderr)
+        return 1
+
+    print()
+    if not _confirm(
+        f"Open this PR now (gh pr create from {clone_dest})?",
+        assume_yes=assume_yes,
+    ):
+        print("Skipping PR. The branch is pushed; open the PR manually when ready.")
+        return 0
+
+    base = default_base_branch(meta)
+    title = f"iOS conversion (rev {commit.revision})"
+    print(f"Running: gh pr create --base {base} --head {commit.branch} ...")
+    info = open_pr(
+        clone_dest,
+        base=base,
+        head=commit.branch,
+        title=title,
+        body_path=summary_path,
+    )
+    if info.opened and info.url:
+        print(f"PR opened: {info.url}")
+        return 0
+
+    print("Could not open PR.", file=sys.stderr)
+    if info.error:
+        print(info.error, file=sys.stderr)
+    if "already exists" in (info.error or "").lower():
+        print(
+            "Hint: the wrapper does not update PR descriptions on re-runs — "
+            "edit the existing PR yourself or close+reopen.",
+            file=sys.stderr,
+        )
+    return 1
 
 
 def cmd_convert_from_github(args: argparse.Namespace) -> int:
@@ -273,6 +328,13 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
         summary_in_repo = ".ios-conversion/generation-summary.md"
         print()
         print(format_post_flight(commit, push, meta=meta, summary_path=summary_in_repo))
+
+        # Phase 5: optionally invoke `gh pr create` directly. Off by default;
+        # opt in with --open-pr. The Phase 4 command stays printed above so
+        # the manual path always works.
+        if args.open_pr:
+            return _do_open_pr(commit=commit, meta=meta, clone_dest=clone_dest,
+                               summary_path=summary_in_repo, assume_yes=args.yes)
         return 0
 
     # Push failed — read-only fallback per the plan. Don't fail the run;
@@ -400,7 +462,16 @@ def build_parser() -> argparse.ArgumentParser:
         const=False,
         help="Commit locally only; do not push.",
     )
-    gh.set_defaults(func=cmd_convert_from_github)
+    gh.add_argument(
+        "--open-pr",
+        dest="open_pr",
+        action="store_true",
+        help="Phase 5: after a successful push, invoke `gh pr create` "
+             "to open the pull request. Off by default. Requires the GitHub "
+             "CLI (`gh`) to be installed and authenticated. Cannot be "
+             "combined with --no-push.",
+    )
+    gh.set_defaults(func=cmd_convert_from_github, open_pr=False)
 
     return parser
 
@@ -408,6 +479,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    # `--no-push` + `--open-pr` is incoherent — you can't open a PR for a
+    # branch that wasn't pushed. argparse can't express this naturally
+    # (different groups), so check here.
+    if getattr(args, "open_pr", False) and getattr(args, "push", None) is False:
+        parser.error("--open-pr cannot be combined with --no-push")
     return args.func(args)
 
 

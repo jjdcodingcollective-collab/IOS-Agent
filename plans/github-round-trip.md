@@ -169,9 +169,27 @@ Out of scope for Phase 3 (covered by Phase 5):
   `wrapper/tests/test_post_flight.py`. No network calls in tests. Run
   with `python3 -m unittest discover -s wrapper`.
 
-**Phase 5 — Optional PR creation**
-- `--open-pr` flag → `gh pr create` with `generation-summary.md` as body
-- Off by default; opt-in until the experience is solid
+**Phase 5 — Optional PR creation** — ✅ shipped
+- `--open-pr` flag on `convert-from-github` → invokes `gh pr create`
+  with the same `(base, head, title, body-file)` tuple Phase 4 prints.
+  Off by default.
+- `wrapper/pr_ops.py`: `gh_available()` checks `which gh` + `gh auth status`,
+  returning a hint when missing (`brew install gh` / `gh auth login`).
+  `open_pr(repo_path, base, head, title, body_path)` runs `gh pr create`
+  from inside the clone, parses the resulting `pull/<n>` URL out of
+  stdout, and returns a `PrInfo(opened, url, error)`.
+- `--no-push --open-pr` is rejected at the argparse layer (incoherent —
+  no branch to PR).
+- Existing-PR collision (`a pull request for branch X already exists`)
+  surfaces verbatim plus the hint that the wrapper does not update PR
+  descriptions on re-runs.
+- Read-only fallback preserved: if push fails, `--open-pr` is never
+  reached. The conversion + local commit always survive.
+- Tests: 15 new unit tests in `wrapper/tests/test_pr_ops.py` cover URL
+  extraction (alone / with preamble / multiple matches / blank / no URL),
+  `gh_available()` (not installed / unauthenticated / OK), and
+  `open_pr()` (success, existing-PR error, body-file inclusion/omission,
+  cwd respected, success-without-URL, timeout). No real `gh` invocations.
 
 ## Wrapper surface (delivered through Phase 3)
 
@@ -194,6 +212,7 @@ python -m wrapper convert-from-github <github-url>
     [--yes]                    skip prompts; implies --push
     [--push | --no-push]       Phase 3; default is to prompt after commit
     [--brief]                  Phase 4; suppress metadata banner + explainer
+    [--open-pr]                Phase 5; opt-in `gh pr create` after successful push
 ```
 
 ## Wrapper command surface (proposed)

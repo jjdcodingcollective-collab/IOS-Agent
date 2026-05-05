@@ -1,6 +1,6 @@
 # References
 
-Last curated: 2026-05-04 (Wrapper Phase 4 shipped — conversational polish)
+Last curated: 2026-05-04 (Wrapper Phase 5 shipped — `--open-pr`; wrapper roadmap complete)
 
 ## Sources
 
@@ -22,13 +22,16 @@ Last curated: 2026-05-04 (Wrapper Phase 4 shipped — conversational polish)
   roadmap. **Phase E Tier 0 + Tier 1 (BUILD-16…22) shipped 2026-05-04.**
   **BUILD-26 + BUILD-29 also shipped 2026-05-04** out of the Tier 2/3 backlog.
 - `plans/github-round-trip.md` — design spec for the wrapper's GitHub round-trip
-  (Phases 1–5). Phases 1–4 delivered. Phase 3 added `--push`/`--no-push`,
+  (Phases 1–5). **All five phases delivered.** Phase 3 added `--push`/`--no-push`,
   `push_branch()` + `PushInfo`, protected-branch refusal, and a read-only
   fallback. Phase 4 added pre-flight repo-metadata banner, post-flight
   `gh pr create` command + compare-URL fallback, educational mode, and
-  `--brief`. Phase 5 (`--open-pr`) is the only remaining open phase.
+  `--brief`. Phase 5 added `--open-pr` (invokes `gh pr create`; off by
+  default; refuses `--no-push --open-pr`).
 - `plans/wrapper-phase-4-conversational-polish.md` — Phase 4 sub-plan,
   shipped 2026-05-04 in three commits matching the locked sequencing.
+- `plans/wrapper-phase-5-open-pr.md` — Phase 5 sub-plan, shipped 2026-05-04
+  in a single commit per the locked sequencing.
 - `plans/agent-interaction-design.md` — three-surface model (CLI / wrapper /
   Claude Code) and long-term product vision.
 - `plans/ios-code-converter.md` — original converter design (historical).
@@ -83,6 +86,7 @@ python -m wrapper convert-from-github <url>  # clone + convert + commit + push (
   --push                push the conversion branch to origin (Phase 3)
   --no-push             commit locally only; do not push (Phase 3)
   --brief               suppress metadata banner + educational block (Phase 4)
+  --open-pr             after push, invoke `gh pr create` to open the PR (Phase 5)
 ```
 
 ### Wrapper modules
@@ -94,6 +98,8 @@ python -m wrapper convert-from-github <url>  # clone + convert + commit + push (
 - `wrapper/repo_metadata.py` — Phase 4: GitHub URL parser, REST `/repos/{owner}/{repo}` fetch, banner formatter; soft-fails on every error path
 - `wrapper/post_flight.py` — Phase 4: `gh pr create` formatter + `compare/<base>...<head>?expand=1` URL fallback
 - `wrapper/explainer.py` — Phase 4: educational "What's on this branch" block (two flavours, depending on `Requires-more-review/` prefix)
+- `wrapper/pr_ops.py` — Phase 5: `gh_available()` (detects `gh` + auth) and `open_pr()` (invokes `gh pr create`, 60s timeout, PR-URL regex extraction); hard-fail on missing/unauthenticated `gh`
 - `wrapper/tests/test_repo_metadata.py` — 33 tests
 - `wrapper/tests/test_post_flight.py` — 24 tests; covers `post_flight` and `explainer`
-- Run all wrapper tests: `python3 -m unittest discover -s wrapper`
+- `wrapper/tests/test_pr_ops.py` — 15 tests; `mock.patch` stubs `subprocess.run` and `shutil.which` so no real `gh` calls
+- Run all wrapper tests (72 total): `python3 -m unittest discover -s wrapper`
