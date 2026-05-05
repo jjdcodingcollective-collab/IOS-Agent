@@ -40,6 +40,8 @@ def _parse_scalar(raw: str) -> Any:
         return []
     if s == "{}":
         return {}
+    if s.startswith("[") and s.endswith("]"):
+        return [_parse_scalar(part) for part in _split_flow_sequence(s[1:-1])]
     if s.lower() in _BOOL:
         return _BOOL[s.lower()]
     if s.lower() in _NULL:
@@ -50,6 +52,32 @@ def _parse_scalar(raw: str) -> Any:
         return int(s)
     except ValueError:
         return s
+
+
+def _split_flow_sequence(body: str) -> list[str]:
+    """Split a comma-separated flow-sequence body, respecting quoted commas."""
+    parts: list[str] = []
+    buf: list[str] = []
+    in_str: str | None = None
+    for ch in body:
+        if in_str:
+            buf.append(ch)
+            if ch == in_str:
+                in_str = None
+            continue
+        if ch in ('"', "'"):
+            in_str = ch
+            buf.append(ch)
+            continue
+        if ch == "," and not in_str:
+            parts.append("".join(buf).strip())
+            buf = []
+            continue
+        buf.append(ch)
+    tail = "".join(buf).strip()
+    if tail or parts:
+        parts.append(tail)
+    return [p for p in parts if p != ""]
 
 
 def _strip_comment(line: str) -> str:

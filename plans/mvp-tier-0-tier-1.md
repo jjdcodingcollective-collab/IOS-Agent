@@ -1,7 +1,7 @@
 # Plan: MVP Tier 0 + Tier 1 — Lock Scope, Then Build the Spine
 
 **Source:** `MVP-Gap-Analysis.md` (saved to `/storage/outputs/ios-agent/`)
-**Status:** Tier 0 complete (all 5 steps shipped 2026-05-05). Tier 1 Step 6 in progress: sub-steps 6.1 and 6.7 shipped; 6.2/6.3/6.4/6.5/6.6 pending. Tier 1 Steps 7 and 8 not started.
+**Status:** Tier 0 complete (all 5 steps shipped 2026-05-05). Tier 1 Step 6 ✅ complete (all 7 sub-steps shipped 2026-05-05). Tier 1 Steps 7 and 8 not started.
 **Owner:** Product / Tech Lead
 **Created:** 2026-05-05
 **Strategy:** "Docs first, converter second." Tier 0 lands as decisions and documentation. Tier 1 is the engineering spine every later BLOCKING item plugs into.
@@ -107,9 +107,9 @@ No engineering. Each item is a one-shot deliverable that closes a decision and u
 
 Once Tier 0 is locked, these are the dependency roots. Every remaining BLOCKING compliance item plugs into one of them, so build them in order.
 
-### Step 6 — API-usage scanner + privacy manifest generator (gap §4.1) — in progress
+### Step 6 — API-usage scanner + privacy manifest generator (gap §4.1) ✅ shipped 2026-05-05
 
-**Status:** Sub-plan tracked at `plans/tier-1-step-6-privacy-scanner.md`. Sub-steps 6.1 (`config/apple-required-reason-apis.yaml`) and 6.7 (`config/apple-privacy-manifest.schema.json`) shipped 2026-05-05. Sub-steps 6.2 (scanner core), 6.3 (manifest generator), 6.4 (override schema), 6.5 (tests), 6.6 (CLI wiring) pending.
+**Status:** Complete. Sub-plan tracked at `plans/tier-1-step-6-privacy-scanner.md`. All seven sub-steps shipped 2026-05-05: 6.1 (`config/apple-required-reason-apis.yaml`), 6.2 (`converter/compliance/api_scanner.py`), 6.3 (`converter/compliance/privacy_manifest.py`), 6.4 (`templates/privacy-overrides.yaml.template`), 6.5 (54 tests across `test_api_scanner.py` + `test_privacy_manifest.py` + `test_compliance_step.py`), 6.6 (`wrapper/compliance_step.py` wired into `convert` and `convert-from-github`), 6.7 (`config/apple-privacy-manifest.schema.json`).
 
 **Why first in Tier 1:** This single component is the foundation for §4.3 (ATT detection), §4.5 (usage strings), §4.9 (ATS), and §7.3 (pre-flight scanner). Build it once, reuse it five times.
 

@@ -1,6 +1,6 @@
 # Project Story
 
-Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 sub-steps 6.1 + 6.7 shipped)
+Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 ✅ complete — all 7 sub-steps shipped)
 
 ## Narrative
 
@@ -131,5 +131,32 @@ not flagged because WKWebView does not route it through
 `PrivacyInfo.xcprivacy` after `plistlib` decoding; it enums the five
 categories, all 17 reason codes, and the six collection purposes, and
 uses conditional `allOf` rules so invalid (category, reason_code) pairs
-fail validation. Sub-steps 6.2 (scanner core), 6.3 (manifest generator),
-6.4 (override schema), 6.5 (tests), and 6.6 (CLI wiring) are next.
+fail validation.
+
+**Step 6 closed out the same day** — the remaining five sub-steps
+(6.2 → 6.6) all shipped 2026-05-05. The scanner core
+(`converter/compliance/api_scanner.py`) walks JS/TS source with
+identifier-boundary regex (skipping `node_modules`, `dist`, `build`,
+`.next`, `workspace`, comment lines) and reads `package.json` +
+`capacitor.config.{ts,js,json}` to enumerate declared plugins; both
+passes produce the same `APIFinding` dataclass so future passes (emitted
+Swift in Bridge/Port) plug in without interface change. The manifest
+generator (`converter/compliance/privacy_manifest.py`) emits XML plist
+via stdlib `plistlib` and validates against the captured schema *before*
+writing — partial files never land on disk. The override loader takes a
+`privacy-overrides.yaml` next to the source tree and merges five
+sections the scanner can't infer (`additional_categories`, `tracking`,
+`third_party_sdks`, `excluded_findings`, `collected_data_types`). A
+canonical `templates/privacy-overrides.yaml.template` documents *why*
+each section needs human input. To stay stdlib-only (matching the
+no-PyYAML decision) a bounded JSON Schema validator was written in-house
+covering exactly the keywords the schema uses. One incidental fix landed
+in `wrapper/compatibility.py`: a `_split_flow_sequence` helper so inline
+flow sequences like `reason_codes: ['1C8F.1']` parse correctly — the
+prior loader silently dropped them as raw strings, which masked an
+override-merge bug. CLI wiring lives in `wrapper/compliance_step.py`,
+hooked into both `convert` and `convert-from-github` (the latter writes
+the manifest before commit so it lands in the conversion branch).
+Compliance failures surface as warnings, not hard fails; Step 7's
+pre-flight scanner is the ship-gate. 54 tests cover the work (25 scanner
++ 21 manifest + 8 wrapper-step), all green.

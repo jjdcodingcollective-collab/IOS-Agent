@@ -1,0 +1,151 @@
+# PrivacyInfo.xcprivacy override file
+#
+# Drop this file at the root of your converted iOS project as
+# `privacy-overrides.yaml`. The converter's compliance step reads it on
+# every run and merges its contents into the auto-generated
+# `PrivacyInfo.xcprivacy` before validating against Apple's schema.
+#
+# The scanner can detect required-reason API usage in your web source +
+# declared Capacitor plugins, but it CANNOT infer:
+#   - whether your app or SDKs use data for tracking (App Tracking Transparency)
+#   - which third-party SDKs ship their own privacy manifests
+#   - which data types you collect and the purposes for collection
+#   - reasons that depend on runtime intent (e.g. CA92.1 "app-only defaults"
+#     vs 1C8F.1 "App Group defaults" — both write UserDefaults, only you
+#     know which applies)
+#
+# Everything in this file is OPTIONAL. An empty override file is valid.
+# Anything you set here is layered on top of the scanner's findings;
+# duplicates are deduplicated by category + reason code.
+#
+# Authoritative references:
+#   Privacy manifest spec:
+#     https://developer.apple.com/documentation/bundleresources/app-privacy-configuration
+#   Required-reason API list (the scanner already covers this):
+#     config/apple-required-reason-apis.yaml
+#   Data-type identifiers (NSPrivacyCollectedDataType*):
+#     https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacycollecteddatatypes/nsprivacycollecteddatatype
+#
+# Validation: every category/reason-code/data-type/purpose value below is
+# checked against config/apple-privacy-manifest.schema.json before the
+# manifest is written. A typo or unsupported value will fail the build.
+
+# ---------------------------------------------------------------------------
+# 1. Additional required-reason API categories the scanner missed.
+#
+# Use this when:
+#   - you ship a Capacitor plugin the scanner doesn't know about that
+#     internally calls a required-reason API (e.g. a custom plugin that
+#     reads file timestamps via FileManager)
+#   - the scanner detected a category but the *reason* it picked is wrong
+#     for your usage (override by adding the correct reason here; the
+#     wrong one stays unless excluded — see section 4)
+#
+# `category` must be one of: NSPrivacyAccessedAPICategoryFileTimestamp,
+#   NSPrivacyAccessedAPICategorySystemBootTime,
+#   NSPrivacyAccessedAPICategoryDiskSpace,
+#   NSPrivacyAccessedAPICategoryActiveKeyboards,
+#   NSPrivacyAccessedAPICategoryUserDefaults
+#
+# `reason_codes` must be Apple-approved codes for that category. See
+# config/apple-required-reason-apis.yaml for the full list.
+#
+# `justification` is for your own audit trail; it is NOT written to the
+# manifest (Apple does not accept free-form justifications in the file).
+additional_categories: []
+# Example:
+# additional_categories:
+#   - category: NSPrivacyAccessedAPICategoryUserDefaults
+#     reason_codes: ['1C8F.1']
+#     justification: >-
+#       App Group user defaults shared with the share extension;
+#       the scanner only detects CA92.1 (app-only) by default.
+
+# ---------------------------------------------------------------------------
+# 2. App Tracking Transparency.
+#
+# `enabled: true` means your app or third-party SDKs use data for
+# tracking as defined under ATT (linking user/device data with data from
+# other companies' apps/sites for advertising or sharing with data
+# brokers). When true, you MUST list every internet domain used for
+# tracking purposes — Apple validates this list on submission.
+#
+# `tracking_domains` are bare hostnames (no scheme, no path).
+#
+# Wrap-mode reminder: if your wrapped web app loads third-party
+# analytics or advertising SDKs in WebView, those count as tracking. Set
+# `enabled: true` and list the domains here.
+tracking:
+  enabled: false
+  tracking_domains: []
+# Example:
+# tracking:
+#   enabled: true
+#   tracking_domains:
+#     - analytics.example.com
+#     - ads.partner.io
+
+# ---------------------------------------------------------------------------
+# 3. Third-party SDKs you ship.
+#
+# Recorded for audit only — not written into PrivacyInfo.xcprivacy
+# directly. Each SDK Apple lists as "commonly used" must ship its own
+# privacy manifest; this section is your record of which SDKs you've
+# verified and where their manifests live.
+#
+# Capacitor plugins that hit required-reason APIs are handled by section
+# 1 above (or auto-detected by the scanner). Use this section for
+# native SDKs (analytics, crash reporters, ad networks, payment SDKs).
+third_party_sdks: []
+# Example:
+# third_party_sdks:
+#   - name: Firebase Analytics
+#     privacy_manifest_url: https://firebase.google.com/docs/ios/app-store-data-collection-info
+#     justification: Used for crash-free user metric only.
+
+# ---------------------------------------------------------------------------
+# 4. Findings the scanner produced that should NOT appear in the manifest.
+#
+# Use sparingly — every excluded finding is a claim that the scanner
+# false-positived. The compliance pre-flight scanner (Step 7) will
+# surface excluded findings as Layer-B (manual review) so a human can
+# re-confirm.
+#
+# Finding IDs are formatted as: `<category>:<pattern>:<file>:<line>`.
+# The exact ID is shown in the scanner's report next to each finding.
+excluded_findings: []
+# Example:
+# excluded_findings:
+#   - 'NSPrivacyAccessedAPICategoryUserDefaults:localStorage:src/legacy.js:42'
+
+# ---------------------------------------------------------------------------
+# 5. Data types you collect (Apple's "data collection" disclosure).
+#
+# Required by Apple regardless of required-reason APIs. The scanner
+# cannot infer this — only you know what your backend stores.
+#
+# `NSPrivacyCollectedDataType` values come from Apple's enumeration; see
+# the data-type-identifiers reference URL at the top of this file.
+# Common entries: NSPrivacyCollectedDataTypeName,
+# NSPrivacyCollectedDataTypeEmailAddress, NSPrivacyCollectedDataTypeUserID,
+# NSPrivacyCollectedDataTypeDeviceID, NSPrivacyCollectedDataTypeCrashData.
+#
+# `NSPrivacyCollectedDataTypeLinked` — true if the data is linked to the
+# user's identity.
+# `NSPrivacyCollectedDataTypeTracking` — true if used for ATT tracking
+# (must also set tracking.enabled: true above).
+# `NSPrivacyCollectedDataTypePurposes` — at least one of:
+#   NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising
+#   NSPrivacyCollectedDataTypePurposeDeveloperAdvertising
+#   NSPrivacyCollectedDataTypePurposeAnalytics
+#   NSPrivacyCollectedDataTypePurposeProductPersonalization
+#   NSPrivacyCollectedDataTypePurposeAppFunctionality
+#   NSPrivacyCollectedDataTypePurposeOther
+collected_data_types: []
+# Example:
+# collected_data_types:
+#   - NSPrivacyCollectedDataType: NSPrivacyCollectedDataTypeEmailAddress
+#     NSPrivacyCollectedDataTypeLinked: true
+#     NSPrivacyCollectedDataTypeTracking: false
+#     NSPrivacyCollectedDataTypePurposes:
+#       - NSPrivacyCollectedDataTypePurposeAppFunctionality

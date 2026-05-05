@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 from .compatibility import UnsupportedCombination, assert_supported
+from .compliance_step import run_compliance_step
 from .explainer import format_branch_explainer
 from .git_ops import (
     GitError,
@@ -106,6 +107,14 @@ def cmd_convert(args: argparse.Namespace) -> int:
 
     print()
     print(format_triage(result))
+
+    if result.success:
+        print()
+        run_compliance_step(
+            source_dir=source,
+            output_dir=output,
+            brief=getattr(args, "brief", False),
+        )
 
     return 0 if result.success else 1
 
@@ -277,6 +286,13 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
         print()
         print("Converter failed; skipping commit.", file=sys.stderr)
         return 1
+
+    print()
+    run_compliance_step(
+        source_dir=convert_source,
+        output_dir=output_dir,
+        brief=args.brief,
+    )
 
     print()
     print("Committing conversion to branch...")

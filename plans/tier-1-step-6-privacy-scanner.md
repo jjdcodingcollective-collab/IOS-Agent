@@ -2,7 +2,7 @@
 
 **Parent plan:** `plans/mvp-tier-0-tier-1.md` (Step 6)
 **Source:** `MVP-Gap-Analysis.md` §4.1
-**Status:** In progress — 6.1 and 6.7 shipped 2026-05-05; 6.2 → 6.3 → 6.4 → 6.5 → 6.6 pending in that order.
+**Status:** ✅ Complete — all sub-steps (6.1 → 6.7) shipped 2026-05-05.
 **Owner:** Tech lead (this conversation)
 **Created:** 2026-05-05
 
