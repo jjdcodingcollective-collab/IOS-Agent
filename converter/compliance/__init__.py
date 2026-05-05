@@ -11,11 +11,14 @@ Plan: plans/tier-1-step-6-privacy-scanner.md
 
 from .api_scanner import (
     APIFinding,
+    PRIVACY_MANIFEST_DOC_URL,
+    PRODUCER,
     ScannerError,
     load_rules,
     scan_source,
     scan_capacitor_plugins,
     scan_all,
+    to_findings,
 )
 from .privacy_manifest import (
     ManifestError,
@@ -25,11 +28,14 @@ from .privacy_manifest import (
 
 __all__ = [
     "APIFinding",
+    "PRIVACY_MANIFEST_DOC_URL",
+    "PRODUCER",
     "ScannerError",
     "load_rules",
     "scan_source",
     "scan_capacitor_plugins",
     "scan_all",
+    "to_findings",
     "ManifestError",
     "generate_manifest",
     "validate_manifest",

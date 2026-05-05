@@ -1,6 +1,6 @@
 # Project Story
 
-Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 ✅ complete; Tier 1 Step 7 sub-step 7.1 shipped — schema + validator extension)
+Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 ✅ complete; Tier 1 Step 7 ✅ complete — schema + emitter + renderers + scanner retrofit + wrapper integration + 62 tests; 197 total green)
 
 ## Narrative
 
@@ -176,4 +176,46 @@ so nullable fields validate cleanly without bumping to a third-party
 `jsonschema` dep. The 54 compliance tests still pass after the
 extension; five manual validation cases (empty report, populated
 report, missing required, bad enum, unknown layer key) all behave
-correctly. Sub-step 7.2 (emitter library) is next.
+correctly.
+
+**Step 7 closed out the same day** — the remaining five sub-steps
+landed end-to-end. Sub-step 7.2 (`converter/report/emitter.py`)
+introduced frozen dataclasses `Finding`, `LearningPattern`, `Source`,
+`Provenance`, and `Report`, plus a `ReportBuilder` that de-duplicates
+findings by id (across both Layer A and B — first call wins) and
+learnings by pattern, validates dataclass invariants in
+`__post_init__` (severity enum, confidence ∈ [0, 1], `untranslatable_count
+≤ occurrences`), and runs the schema validator on `to_dict()` before
+returning, raising `ReportError` with the validator's path-pointed
+message on failure. Clock injection (`clock=lambda: "..."`) keeps
+test output byte-stable. Sub-step 7.3 (`converter/report/render.py`)
+shipped three renderers: `render_json` (sorted-key, indented),
+`render_markdown` (sorted by `(severity_rank, category, file, line, id)`
+with per-finding detail blocks and category-grouped tables), and
+`render_summary` with a 65,000-character default budget for GitHub
+PR-comment headroom — Layer A capped at 20, Layer B grouped by
+category counts, Layer C top 5 by occurrences, with a `_trim_to_budget`
+fallback that halves the Layer A cap iteratively and never produces
+invalid Markdown even at extreme tight budgets. Sub-step 7.4 retrofitted
+the Step 6 scanner: `converter/compliance/api_scanner.to_findings`
+maps `APIFinding` records to `Finding(category="compliance.privacy-manifest")`
+records with stable ids (`compliance.privacy-manifest.<short>#<idx>`),
+the pinned Apple required-reason-API doc URL, and repo-relative file
+paths (resolved via `Path.resolve()` on both sides before
+`relative_to`, working around the `TemporaryDirectory(dir="workspace")`
+relative-vs-absolute mismatch). The wrapper-side `compliance_step.py`
+gained an optional `report_builder` kwarg that, when supplied, pushes
+findings into Layer A and preserves the existing one-line summary
+print. Sub-step 7.5 wired the wrapper: a new
+`_run_compliance_with_report` helper in `wrapper/__main__.py`
+constructs a `ReportBuilder` keyed on `Source(archetype="web",
+target_mode="wrap", root=str(source_dir), rev=1)`, runs the compliance
+step into it, and writes both `report.md` and `report.json` into the
+output dir on every conversion (failures surface as warnings, never
+ship-blockers — that role belongs to Step 7+1's pre-flight scanner).
+Sub-step 7.6 added 62 new tests (14 schema rejection + 28 emitter
+validation + 15 renderer byte-stability/budget + 5 end-to-end wrapper
+integration); 197 tests total, all green. The next plan introduces
+the pre-flight scanner that consumes Layer-A findings to gate
+ship-readiness; Step 8 (Xcode project generation via XcodeGen / Tuist
+— gap §3.4 + §6.2) follows.

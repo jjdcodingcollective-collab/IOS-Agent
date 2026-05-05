@@ -19,6 +19,14 @@ import shutil
 import sys
 from pathlib import Path
 
+from converter.report import (
+    ReportBuilder,
+    ReportError,
+    Source,
+    render_json,
+    render_markdown,
+)
+
 from .compatibility import UnsupportedCombination, assert_supported
 from .compliance_step import run_compliance_step
 from .explainer import format_branch_explainer
@@ -55,6 +63,64 @@ def _confirm(prompt: str, assume_yes: bool) -> bool:
         return False
     answer = input(f"{prompt} [y/N] ").strip().lower()
     return answer in ("y", "yes")
+
+
+TOOL_VERSION = "ios-agent 0.1.0"
+REPORT_FILENAME_MD = "report.md"
+REPORT_FILENAME_JSON = "report.json"
+
+
+def _run_compliance_with_report(
+    *,
+    source_dir: Path,
+    output_dir: Path,
+    brief: bool,
+) -> None:
+    """Run the compliance step, accumulate findings into a Report, and write
+    report.md + report.json into output_dir.
+
+    Failure to render or write the report surfaces as a wrapper-level
+    warning — the conversion + manifest already landed; the report writer
+    is not the ship-gate. Step 7+1's pre-flight scanner is.
+    """
+    builder = ReportBuilder(
+        source=Source(
+            archetype="web",
+            target_mode="wrap",
+            root=str(source_dir),
+            rev=1,
+        ),
+        tool_version=TOOL_VERSION,
+    )
+    run_compliance_step(
+        source_dir=source_dir,
+        output_dir=output_dir,
+        brief=brief,
+        report_builder=builder,
+    )
+
+    try:
+        report = builder.build()
+    except ReportError as exc:
+        print(f"warning: report build failed: {exc}", file=sys.stderr)
+        return
+
+    md_path = output_dir / REPORT_FILENAME_MD
+    json_path = output_dir / REPORT_FILENAME_JSON
+    try:
+        md_path.write_text(render_markdown(report), encoding="utf-8")
+        json_path.write_text(render_json(report), encoding="utf-8")
+    except OSError as exc:
+        print(f"warning: could not write report: {exc}", file=sys.stderr)
+        return
+
+    n_a = len(report.layer_a_blockers)
+    n_b = len(report.layer_b_manual_review)
+    n_c = len(report.layer_c_learnings)
+    print(
+        f"report: A={n_a} B={n_b} C={n_c} "
+        f"→ {REPORT_FILENAME_MD}, {REPORT_FILENAME_JSON}"
+    )
 
 
 def _gate_combination(source: str, target: str, *, allow_unsupported: bool) -> int | None:
@@ -110,7 +176,7 @@ def cmd_convert(args: argparse.Namespace) -> int:
 
     if result.success:
         print()
-        run_compliance_step(
+        _run_compliance_with_report(
             source_dir=source,
             output_dir=output,
             brief=getattr(args, "brief", False),
@@ -288,7 +354,7 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
         return 1
 
     print()
-    run_compliance_step(
+    _run_compliance_with_report(
         source_dir=convert_source,
         output_dir=output_dir,
         brief=args.brief,

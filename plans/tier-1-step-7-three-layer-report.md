@@ -2,7 +2,7 @@
 
 **Parent plan:** `plans/mvp-tier-0-tier-1.md` (Step 7)
 **Source:** `MVP-Gap-Analysis.md` §7.1, §7.2, §7.3
-**Status:** Draft — 2026-05-05.
+**Status:** ✅ Complete — all six sub-steps shipped 2026-05-05. 62 new tests; 197 tests total green.
 **Owner:** Tech lead (this conversation)
 **Created:** 2026-05-05
 

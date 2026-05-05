@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from converter.compliance import (
     APIFinding,
@@ -21,7 +22,11 @@ from converter.compliance import (
     ScannerError,
     generate_manifest,
     scan_all,
+    to_findings,
 )
+
+if TYPE_CHECKING:
+    from converter.report import ReportBuilder
 
 
 # Override file the developer can drop next to their source tree.
@@ -49,6 +54,7 @@ def run_compliance_step(
     source_dir: Path,
     output_dir: Path,
     brief: bool = False,
+    report_builder: "ReportBuilder | None" = None,
 ) -> ComplianceResult:
     """Scan source, generate PrivacyInfo.xcprivacy, print a summary.
 
@@ -56,6 +62,10 @@ def run_compliance_step(
     via the `error` field and printed as a warning. The wrapper continues
     past compliance issues because Step 7's pre-flight scanner is the
     ship-gate, not this step.
+
+    When `report_builder` is supplied, scanner findings are also pushed
+    into it as Layer A blockers via `to_findings()`. The one-line summary
+    print happens unconditionally so existing CLI output is unchanged.
     """
     overrides = source_dir / OVERRIDES_FILENAME
     overrides_path = overrides if overrides.exists() else None
@@ -78,6 +88,10 @@ def run_compliance_step(
         msg = f"privacy manifest generation failed: {exc}"
         print(f"warning: {msg}")
         return ComplianceResult(manifest_path=None, findings=findings, error=msg)
+
+    if report_builder is not None:
+        for f in to_findings(findings, source_root=source_dir):
+            report_builder.add_blocker(f)
 
     _print_summary(findings, manifest_path, overrides_path, brief=brief)
     return ComplianceResult(manifest_path=manifest_path, findings=findings)

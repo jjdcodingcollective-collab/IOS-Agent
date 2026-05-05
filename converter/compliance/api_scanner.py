@@ -303,3 +303,99 @@ def _enumerate_lines(text: str) -> Iterable[tuple[int, str]]:
     """Yield (1-indexed line number, line) pairs."""
     for i, line in enumerate(text.splitlines(), start=1):
         yield i, line
+
+
+# --- Three-layer report adapter (Step 7.4) -----------------------------------
+#
+# Bridges APIFinding (this module's native shape) to converter.report.Finding
+# so the scanner can emit findings into a ReportBuilder. Kept here rather than
+# in converter/report/ to avoid creating a back-edge from report → compliance:
+# the compliance package owns the producer identity + canonical doc URL.
+
+# Apple's canonical documentation page for required-reason API categories.
+# Captured 2026-05-05 from config/apple-required-reason-apis.yaml header.
+PRIVACY_MANIFEST_DOC_URL = (
+    "https://developer.apple.com/documentation/bundleresources/"
+    "app-privacy-configuration/nsprivacyaccessedapitypes/"
+    "nsprivacyaccessedapitype"
+)
+
+# Producer identifier stamped on every Finding emitted from this module.
+PRODUCER = "compliance.api_scanner"
+
+
+def to_findings(
+    api_findings: Iterable[APIFinding],
+    *,
+    source_root: Path | None = None,
+) -> list["Finding"]:  # noqa: F821 — forward ref, imported lazily below
+    """Convert APIFinding records into report Finding records.
+
+    All scanner findings are Layer A blockers (severity=blocker), per gap §4.1
+    — a missing privacy-manifest entry blocks ship. Plugin-derived findings
+    use the (plugins) sentinel for `file` since they have no source location.
+
+    `source_root`, when provided, is used to render `file` as a repo-relative
+    path. Without it, the absolute path from the APIFinding is preserved.
+    """
+    # Lazy import: keeps the compliance package import-clean for code paths
+    # that don't need the report shape (e.g. the existing one-line summary).
+    from converter.report import Finding
+
+    out: list[Finding] = []
+    counters: dict[str, int] = {}
+    for af in api_findings:
+        category_short = af.category.removeprefix("NSPrivacyAccessedAPICategory")
+        slug = category_short.lower()
+        idx = counters.get(slug, 0)
+        counters[slug] = idx + 1
+        finding_id = f"compliance.privacy-manifest.{slug}#{idx}"
+
+        if af.pattern_type == "capacitor_plugin":
+            file_str = "(plugins)"
+            line = 0
+            reason = (
+                f"Capacitor plugin `{af.pattern}` exposes "
+                f"{category_short} APIs (required-reason)."
+            )
+        else:
+            if source_root is not None:
+                # source_root may be a relative path (e.g. from a temp dir);
+                # the scanner walks os.walk which yields absolute paths. Resolve
+                # both sides so relative_to() can match.
+                root_abs = source_root.resolve()
+                file_abs = af.file.resolve()
+                try:
+                    file_str = str(file_abs.relative_to(root_abs))
+                except ValueError:
+                    file_str = str(af.file)
+            else:
+                file_str = str(af.file)
+            line = af.line
+            reason = (
+                f"Source uses `{af.pattern}`, which Apple classifies as "
+                f"{category_short} (required-reason API)."
+            )
+
+        recommended_fix = (
+            f"Confirm the manifest entry's reason code (`{af.reason_code}`) "
+            f"matches the actual use, or add an override in "
+            f"`privacy-overrides.yaml`."
+        )
+
+        out.append(
+            Finding(
+                id=finding_id,
+                category=f"compliance.privacy-manifest.{slug}",
+                severity="blocker",
+                producer=PRODUCER,
+                file=file_str,
+                line=line,
+                original_snippet=af.snippet,
+                attempted_translation=None,
+                reason=reason,
+                recommended_fix=recommended_fix,
+                doc_link=PRIVACY_MANIFEST_DOC_URL,
+            )
+        )
+    return out
