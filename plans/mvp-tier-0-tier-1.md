@@ -1,7 +1,7 @@
 # Plan: MVP Tier 0 + Tier 1 — Lock Scope, Then Build the Spine
 
 **Source:** `MVP-Gap-Analysis.md` (saved to `/storage/outputs/ios-agent/`)
-**Status:** Tier 0 complete (all 5 steps shipped 2026-05-05). Tier 1 Step 6 ✅ complete (all 7 sub-steps shipped 2026-05-05). Tier 1 Step 7 ✅ complete (all 6 sub-steps shipped 2026-05-05): schema + emitter + renderers + scanner retrofit + wrapper integration + tests (62 new tests, 197 total green). Tier 1 Step 8 not started.
+**Status:** Tier 0 complete (all 5 steps shipped 2026-05-05). Tier 1 Step 6 ✅ complete. Tier 1 Step 7 ✅ complete (62 new tests, 197 total green). Tier 1 Step 8 ✅ complete (all 6 sub-steps shipped 2026-05-05): entitlement scanner + 12-capability catalogue + XcodeGen spec emitter + 6 templates + wrapper integration (`--bundle-id`, `--team-id`) + Linux+macOS CI workflow + 36 new tests (233 total green). Tier 1 closed.
 **Owner:** Product / Tech Lead
 **Created:** 2026-05-05
 **Strategy:** "Docs first, converter second." Tier 0 lands as decisions and documentation. Tier 1 is the engineering spine every later BLOCKING item plugs into.
@@ -162,7 +162,9 @@ Once Tier 0 is locked, these are the dependency roots. Every remaining BLOCKING 
 
 ---
 
-### Step 8 — Xcode project generation via XcodeGen / Tuist (gap §5.1)
+### Step 8 — Xcode project generation via XcodeGen / Tuist (gap §5.1) — ✅ complete
+
+Sub-plan: `plans/tier-1-step-8-xcode-project-generation.md`. Shipped 2026-05-05.
 
 **Why third:** Wrap-mode output has nowhere to land without a generated `.xcodeproj`. Builds on the tooling-stack ADR (Step 4).
 

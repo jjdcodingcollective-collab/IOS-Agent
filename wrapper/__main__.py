@@ -15,6 +15,7 @@ push failure is never destructive.
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -30,6 +31,7 @@ from converter.report import (
 from .compatibility import UnsupportedCombination, assert_supported
 from .compliance_step import run_compliance_step
 from .explainer import format_branch_explainer
+from .xcode_step import run_xcode_step
 from .git_ops import (
     GitError,
     NEEDS_REVIEW_PREFIX,
@@ -69,19 +71,41 @@ TOOL_VERSION = "ios-agent 0.1.0"
 REPORT_FILENAME_MD = "report.md"
 REPORT_FILENAME_JSON = "report.json"
 
+PLACEHOLDER_BUNDLE_ID_PREFIX = "com.example."
+PLACEHOLDER_TEAM_ID = "TODO_TEAMID"
 
-def _run_compliance_with_report(
+_BUNDLE_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _default_bundle_id(app_name: str) -> str:
+    """Derive a placeholder reverse-DNS bundle id from the app name.
+
+    The com.example.* prefix is reserved by Apple; the emitter emits a
+    Layer-A blocker for any bundle id under that prefix so the developer
+    must replace it before submission. We use the app slug (lowercased,
+    non-alphanumerics collapsed) as the suffix so multi-app workspaces
+    don't collide on the default.
+    """
+    slug = _BUNDLE_SLUG_RE.sub("", app_name.lower())
+    if not slug:
+        slug = "myapp"
+    return f"{PLACEHOLDER_BUNDLE_ID_PREFIX}{slug}"
+
+
+def _run_post_conversion_steps(
     *,
     source_dir: Path,
     output_dir: Path,
+    app_name: str,
+    bundle_id: str,
+    team_id: str,
     brief: bool,
 ) -> None:
-    """Run the compliance step, accumulate findings into a Report, and write
-    report.md + report.json into output_dir.
+    """Run compliance + Xcode emit, accumulate findings, write report.md/json.
 
     Failure to render or write the report surfaces as a wrapper-level
-    warning — the conversion + manifest already landed; the report writer
-    is not the ship-gate. Step 7+1's pre-flight scanner is.
+    warning — the conversion + manifest + project.yml already landed; the
+    report writer is not the ship-gate. Step 7's pre-flight scanner is.
     """
     builder = ReportBuilder(
         source=Source(
@@ -95,6 +119,15 @@ def _run_compliance_with_report(
     run_compliance_step(
         source_dir=source_dir,
         output_dir=output_dir,
+        brief=brief,
+        report_builder=builder,
+    )
+    run_xcode_step(
+        source_dir=source_dir,
+        output_dir=output_dir,
+        app_name=app_name,
+        bundle_id=bundle_id,
+        team_id=team_id,
         brief=brief,
         report_builder=builder,
     )
@@ -176,9 +209,12 @@ def cmd_convert(args: argparse.Namespace) -> int:
 
     if result.success:
         print()
-        _run_compliance_with_report(
+        _run_post_conversion_steps(
             source_dir=source,
             output_dir=output,
+            app_name=args.app_name,
+            bundle_id=args.bundle_id or _default_bundle_id(args.app_name),
+            team_id=args.team_id,
             brief=getattr(args, "brief", False),
         )
 
@@ -354,9 +390,12 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
         return 1
 
     print()
-    _run_compliance_with_report(
+    _run_post_conversion_steps(
         source_dir=convert_source,
         output_dir=output_dir,
+        app_name=args.app_name,
+        bundle_id=args.bundle_id or _default_bundle_id(args.app_name),
+        team_id=args.team_id,
         brief=args.brief,
     )
 
@@ -478,6 +517,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Name for the generated iOS app (default: MyApp).",
     )
     convert.add_argument(
+        "--bundle-id",
+        default=None,
+        help="Reverse-DNS bundle id for the generated iOS app "
+             "(default: com.example.<slug>; the placeholder prefix triggers "
+             "a Layer-A finding).",
+    )
+    convert.add_argument(
+        "--team-id",
+        default=PLACEHOLDER_TEAM_ID,
+        help="10-character Apple Developer Team ID "
+             "(default: TODO_TEAMID; the placeholder triggers a Layer-A finding).",
+    )
+    convert.add_argument(
         "--no-validate",
         action="store_true",
         help="Skip swiftc validation (faster).",
@@ -531,6 +583,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--app-name",
         default="MyApp",
         help="Name for the generated iOS app (default: MyApp).",
+    )
+    gh.add_argument(
+        "--bundle-id",
+        default=None,
+        help="Reverse-DNS bundle id for the generated iOS app "
+             "(default: com.example.<slug>; the placeholder prefix triggers "
+             "a Layer-A finding).",
+    )
+    gh.add_argument(
+        "--team-id",
+        default=PLACEHOLDER_TEAM_ID,
+        help="10-character Apple Developer Team ID "
+             "(default: TODO_TEAMID; the placeholder triggers a Layer-A finding).",
     )
     gh.add_argument(
         "--depth",

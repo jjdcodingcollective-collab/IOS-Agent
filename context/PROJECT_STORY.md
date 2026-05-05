@@ -1,6 +1,6 @@
 # Project Story
 
-Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 ✅ complete; Tier 1 Step 7 ✅ complete — schema + emitter + renderers + scanner retrofit + wrapper integration + 62 tests; 197 total green)
+Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 ✅ complete; Tier 1 Step 7 ✅ complete; Tier 1 Step 8 ✅ complete — entitlement scanner + 12-capability catalogue + XcodeGen spec emitter + 6 templates + wrapper integration + Linux+macOS CI + 36 tests; 233 total green; Tier 1 closed)
 
 ## Narrative
 
@@ -215,7 +215,36 @@ output dir on every conversion (failures surface as warnings, never
 ship-blockers — that role belongs to Step 7+1's pre-flight scanner).
 Sub-step 7.6 added 62 new tests (14 schema rejection + 28 emitter
 validation + 15 renderer byte-stability/budget + 5 end-to-end wrapper
-integration); 197 tests total, all green. The next plan introduces
-the pre-flight scanner that consumes Layer-A findings to gate
-ship-readiness; Step 8 (Xcode project generation via XcodeGen / Tuist
-— gap §3.4 + §6.2) follows.
+integration); 197 tests total, all green.
+
+**Tier 1 Step 8 closed Tier 1 the same day.** The sub-plan at
+`plans/tier-1-step-8-xcode-project-generation.md` pinned XcodeGen as
+the project generator (Tuist out of scope per ADR-0001), split
+entitlement detection from required-reason API detection
+(`config/apple-entitlements.yaml` separate from
+`config/apple-required-reason-apis.yaml`), and decided the wrapper
+writes `project.yml` while the developer runs `xcodegen generate`.
+Sub-step 8.2 shipped a 12-capability catalogue (push, App Groups,
+iCloud, HealthKit, Sign in with Apple, camera, microphone, location,
+photo library, contacts, calendar, bluetooth) and an entitlement
+scanner that mirrors `api_scanner.py`'s walk + dedup contract.
+Sub-step 8.3 shipped the XcodeGen emitter (`converter/xcode_project/emitter.py`)
+plus six templates including a programmatically-generated 1024×1024
+PNG (stdlib `struct` + `zlib`, no Pillow dependency). The emitter
+emits Layer-A blockers for placeholder bundle id, placeholder team
+id, placeholder app icon, placeholder launch screen, and missing
+privacy manifest. Sub-step 8.4 added `--bundle-id` and `--team-id`
+flags to both `convert` subcommands and renamed
+`_run_compliance_with_report` to `_run_post_conversion_steps` so it
+drives both Step 6 and Step 8 against the same `ReportBuilder` —
+final `report.md` lists Layer A (privacy manifest + entitlements +
+placeholders) and Layer B (permission-prompted capabilities) in one
+pass. Sub-step 8.5 shipped the project's first CI workflow
+(`.github/workflows/test.yml`): a Linux job that builds XcodeGen 2.39
+from source and validates the emitted spec, plus a macOS job (gated
+to `main` push and PRs labelled `macos-ci`) that runs `xcodegen
+generate` + `xcodebuild` with `CODE_SIGNING_ALLOWED=NO`. Sub-step 8.6
+added 36 new tests (13 scanner + 14 emitter + 7 template + 2 wrapper
+integration); 233 tests total, all green. **Tier 1 is now complete.**
+The next plan (gap §6.2) introduces the pre-flight scanner that
+consumes Layer-A findings to gate ship-readiness.

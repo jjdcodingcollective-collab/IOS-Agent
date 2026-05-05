@@ -20,6 +20,13 @@ from .api_scanner import (
     scan_all,
     to_findings,
 )
+from .entitlement_scanner import (
+    ENTITLEMENT_DOC_URL,
+    EntitlementFinding,
+)
+from .entitlement_scanner import PRODUCER as ENTITLEMENT_PRODUCER
+from .entitlement_scanner import scan_all as scan_all_entitlements
+from .entitlement_scanner import to_findings as entitlement_to_findings
 from .privacy_manifest import (
     ManifestError,
     generate_manifest,
@@ -36,6 +43,11 @@ __all__ = [
     "scan_capacitor_plugins",
     "scan_all",
     "to_findings",
+    "ENTITLEMENT_DOC_URL",
+    "ENTITLEMENT_PRODUCER",
+    "EntitlementFinding",
+    "scan_all_entitlements",
+    "entitlement_to_findings",
     "ManifestError",
     "generate_manifest",
     "validate_manifest",

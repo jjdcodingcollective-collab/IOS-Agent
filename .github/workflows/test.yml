@@ -1,0 +1,199 @@
+# CI workflow — Tier 1 Step 8.5.
+#
+# Two jobs:
+#   - linux-python: runs the Python suite + an end-to-end wrapper run that
+#     emits an XcodeGen spec, then validates the spec with `xcodegen` itself.
+#     Fast (no macOS runner). Runs on every push and PR.
+#   - macos-build: macOS-only. Runs `xcodegen generate` and `xcodebuild` on
+#     the emitted project to confirm it builds clean. Slow (macOS runner
+#     minutes are expensive), so it is gated to `main` push and to PRs that
+#     opt in via the `macos-ci` label. PRs that don't touch the build path
+#     can stay on the linux-python job alone.
+#
+# Plan: plans/tier-1-step-8-xcode-project-generation.md (Step 8.5).
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  linux-python:
+    name: Python suite + XcodeGen spec validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        # The codebase is stdlib-only by design (ADR-0001); but pyyaml and
+        # jsonschema are pulled in via the report + scanner modules. Keep
+        # this list explicit rather than from-requirements so the dep set
+        # stays auditable.
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml jsonschema
+
+      - name: Run Python tests
+        run: |
+          python -m unittest discover -s converter -t . -v
+          python -m unittest discover -s wrapper -t . -v
+
+      - name: Build a fixture and run the wrapper end-to-end
+        # Minimal Capacitor-shaped fixture: one push-notifications import,
+        # one geolocation call, one camera plugin. Exercises both Layer-A
+        # (Apple-account-dependent) and Layer-B (permission-prompted)
+        # entitlement detection.
+        run: |
+          set -euo pipefail
+          mkdir -p workspace/ci-fixture/src
+          cat > workspace/ci-fixture/package.json <<'EOF'
+          {
+            "name": "ci-fixture",
+            "version": "0.0.1",
+            "dependencies": {
+              "@capacitor/core": "^6.0.0",
+              "@capacitor/push-notifications": "^6.0.0",
+              "@capacitor/camera": "^6.0.0"
+            }
+          }
+          EOF
+          cat > workspace/ci-fixture/src/main.ts <<'EOF'
+          import { PushNotifications } from '@capacitor/push-notifications';
+          PushNotifications.register();
+          navigator.geolocation.getCurrentPosition((pos) => console.log(pos));
+          EOF
+          python -m wrapper convert workspace/ci-fixture \
+            --output workspace/ci-out \
+            --app-name CIFixture \
+            --bundle-id com.example.cifixture \
+            --no-validate --yes --brief --allow-unsupported
+
+      - name: Verify expected artifacts landed
+        run: |
+          set -euo pipefail
+          test -f workspace/ci-out/project.yml
+          test -f workspace/ci-out/App/Info.plist
+          test -f workspace/ci-out/App/AppDelegate.swift
+          test -f workspace/ci-out/App/CIFixture.entitlements
+          test -f workspace/ci-out/App/Assets.xcassets/AppIcon.appiconset/icon-1024.png
+          test -f workspace/ci-out/App/Base.lproj/LaunchScreen.storyboard
+          test -f workspace/ci-out/PrivacyInfo.xcprivacy
+          test -f workspace/ci-out/report.md
+          test -f workspace/ci-out/report.json
+          # Layer A must contain the placeholder bundle-id finding (we ran
+          # under com.example.* deliberately) and the push-notifications
+          # entitlement finding from the fixture.
+          grep -q 'xcode.placeholder.bundle-id' workspace/ci-out/report.md
+          grep -q 'compliance.entitlement.pushnotifications' workspace/ci-out/report.md
+          grep -q 'xcode.placeholder.app-icon' workspace/ci-out/report.md
+          grep -q 'xcode.placeholder.launch-screen' workspace/ci-out/report.md
+
+      - name: Install XcodeGen (Linux build from source)
+        # Apple ships XcodeGen for macOS only, but the spec validator
+        # (`xcodegen --spec project.yml --quiet`) does not require Xcode —
+        # it parses YAML and emits .pbxproj. We build it from source so the
+        # spec parses on the cheap Linux runner.
+        run: |
+          set -euo pipefail
+          # Swift 5.9 is the minimum XcodeGen 2.39+ supports; ubuntu-latest
+          # ships Swift via swift.org's Linux toolchain.
+          if ! command -v swift >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y wget
+            wget -q https://download.swift.org/swift-5.9.2-release/ubuntu2204/swift-5.9.2-RELEASE/swift-5.9.2-RELEASE-ubuntu22.04.tar.gz
+            sudo tar -xzf swift-5.9.2-RELEASE-ubuntu22.04.tar.gz -C /opt
+            echo "/opt/swift-5.9.2-RELEASE-ubuntu22.04/usr/bin" >> $GITHUB_PATH
+          fi
+          git clone --depth 1 --branch 2.39.0 https://github.com/yonaskolb/XcodeGen.git /tmp/xcodegen
+          (cd /tmp/xcodegen && swift build -c release)
+          echo "/tmp/xcodegen/.build/release" >> $GITHUB_PATH
+
+      - name: Validate the emitted XcodeGen spec
+        # `xcodegen` exits non-zero on any spec error; that's the gate.
+        run: |
+          set -euo pipefail
+          cd workspace/ci-out
+          xcodegen --spec project.yml --quiet --no-cache
+
+  macos-build:
+    name: macOS xcodebuild (slow path)
+    runs-on: macos-latest
+    # Gate to main push and PRs explicitly labelled 'macos-ci'. PR triggers
+    # without the label fall back to linux-python only — keeps PR runner
+    # minutes bounded.
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || (github.event_name == 'pull_request'
+          && contains(github.event.pull_request.labels.*.name, 'macos-ci'))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml jsonschema
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+
+      - name: Build a fixture and run the wrapper end-to-end
+        run: |
+          set -euo pipefail
+          mkdir -p workspace/ci-fixture/src
+          cat > workspace/ci-fixture/package.json <<'EOF'
+          {
+            "name": "ci-fixture",
+            "version": "0.0.1",
+            "dependencies": {
+              "@capacitor/core": "^6.0.0",
+              "@capacitor/push-notifications": "^6.0.0"
+            }
+          }
+          EOF
+          cat > workspace/ci-fixture/src/main.ts <<'EOF'
+          import { PushNotifications } from '@capacitor/push-notifications';
+          PushNotifications.register();
+          EOF
+          python -m wrapper convert workspace/ci-fixture \
+            --output workspace/ci-out \
+            --app-name CIFixture \
+            --bundle-id com.example.cifixture \
+            --no-validate --yes --brief --allow-unsupported
+
+      - name: Generate Xcode project
+        run: |
+          set -euo pipefail
+          cd workspace/ci-out
+          xcodegen generate
+
+      - name: Build for iOS Simulator (no signing)
+        # CODE_SIGNING_ALLOWED=NO skips signing — we just want to confirm
+        # the project builds clean. Real code signing requires a Team ID
+        # and a provisioning profile; the wrapper emits TODO_TEAMID by
+        # default and the real value is the developer's job.
+        run: |
+          set -euo pipefail
+          cd workspace/ci-out
+          xcodebuild \
+            -scheme CIFixture \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build

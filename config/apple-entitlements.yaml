@@ -1,0 +1,247 @@
+# Apple Entitlement Detection Catalogue — Tier 1 Step 8.2
+#
+# Maps source-side patterns (JS/TS APIs, Capacitor plugins, ts imports) to the
+# iOS entitlement keys they imply, plus any Info.plist usage strings the
+# capability requires.
+#
+# Captured on: 2026-05-05
+#
+# This file backs:
+#   - converter/compliance/entitlement_scanner.py (source-side detection)
+#   - converter/xcode_project/emitter.py          (capability flags in project.yml)
+#
+# Update policy: per docs/adr/0001-tooling-stack.md, this file is reviewed
+# alongside Apple's entitlement and capability docs. Apple expanded the
+# entitlement set across iOS 15→17 (background-assets, family-sharing,
+# device-activity); treat this catalogue as time-versioned data, not code.
+#
+# How to add coverage:
+#   1. Identify the entitlement key from Apple's Capabilities documentation
+#      (https://developer.apple.com/documentation/bundleresources/entitlements).
+#   2. Add the entry under entitlements: with its detection patterns.
+#   3. Mark requires_developer_account=true if the developer must enable the
+#      capability in their Apple Developer account *before* the entitlement
+#      will sign cleanly. (Push notifications, App Groups, iCloud, HealthKit,
+#      Sign in with Apple, In-App Purchase all require this.)
+#   4. Add usage_strings if the capability requires NS*UsageDescription
+#      keys in Info.plist (camera, mic, location, etc.).
+#   5. Add a fixture under converter/compliance/tests/fixtures/.
+#   6. Run the scanner test suite.
+
+schema_version: 1
+captured_on: 2026-05-05
+spec_url: https://developer.apple.com/documentation/bundleresources/entitlements
+
+# Pattern types (match the api_scanner.py vocabulary):
+#   js_api           — a JS/TS API name; matched as a word boundary in source
+#   ts_import        — an ES module import path
+#   capacitor_plugin — a Capacitor plugin id (declared in capacitor.config.* or imported)
+
+entitlements:
+
+  # ---------------------------------------------------------------------------
+  - key: aps-environment
+    label: Push Notifications
+    capability: PushNotifications
+    requires_developer_account: true
+    usage_strings: []
+    notes: >-
+      Apple Developer Account must enable the Push Notifications capability for
+      the app id; otherwise signing fails. Production value is "production";
+      development value is "development". XcodeGen flips this via the
+      SystemCapabilities key.
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor/push-notifications'
+      - pattern_type: ts_import
+        pattern: '@capacitor/push-notifications'
+      - pattern_type: js_api
+        pattern: 'PushNotifications.register'
+      - pattern_type: js_api
+        pattern: 'Notification.requestPermission'
+
+  # ---------------------------------------------------------------------------
+  - key: com.apple.security.application-groups
+    label: App Groups
+    capability: AppGroups
+    requires_developer_account: true
+    usage_strings: []
+    notes: >-
+      App Groups must be created in the Apple Developer Account before the
+      entitlement value (group.<bundle-id-prefix>.<suffix>) will sign. Often
+      paired with the UserDefaults reason code 1C8F.1.
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor-community/app-group'
+      - pattern_type: ts_import
+        pattern: '@capacitor-community/app-group'
+
+  # ---------------------------------------------------------------------------
+  - key: com.apple.developer.icloud-container-identifiers
+    label: iCloud
+    capability: iCloud
+    requires_developer_account: true
+    usage_strings: []
+    notes: >-
+      iCloud containers must be provisioned in the Apple Developer Account.
+      Capacitor does not ship a first-party iCloud plugin; community plugins
+      exist but vary in quality.
+    patterns:
+      - pattern_type: ts_import
+        pattern: '@capacitor-community/icloud'
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor-community/icloud'
+
+  # ---------------------------------------------------------------------------
+  - key: com.apple.developer.healthkit
+    label: HealthKit
+    capability: HealthKit
+    requires_developer_account: true
+    usage_strings:
+      - NSHealthShareUsageDescription
+      - NSHealthUpdateUsageDescription
+    notes: >-
+      Apple rejects HealthKit apps without both share and update usage strings,
+      even if only one direction is used. The strings must describe the actual
+      data accessed; boilerplate is soft-rejected.
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@perfood/capacitor-healthkit'
+      - pattern_type: ts_import
+        pattern: '@perfood/capacitor-healthkit'
+
+  # ---------------------------------------------------------------------------
+  - key: com.apple.developer.applesignin
+    label: Sign in with Apple
+    capability: SignInWithApple
+    requires_developer_account: true
+    usage_strings: []
+    notes: >-
+      Apple Guideline 4.8 requires Sign in with Apple parity if the app uses
+      any third-party login (Google, Facebook, etc.). The wrapper does not
+      detect third-party SSO patterns yet; this entitlement is only flagged
+      when SIWA itself appears.
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor-community/apple-sign-in'
+      - pattern_type: ts_import
+        pattern: '@capacitor-community/apple-sign-in'
+
+  # ---------------------------------------------------------------------------
+  # Permission-prompted capabilities — no Apple-Developer-Account requirement,
+  # but Info.plist usage strings are mandatory or the OS hard-crashes the
+  # first time the API is called.
+  # ---------------------------------------------------------------------------
+
+  - key: ''  # No entitlement key — usage strings only.
+    label: Camera
+    capability: Camera
+    requires_developer_account: false
+    usage_strings:
+      - NSCameraUsageDescription
+    notes: >-
+      iOS terminates the process if the app calls AVCaptureSession without
+      NSCameraUsageDescription set. The wrapper emits a placeholder string
+      that the developer must replace with a meaningful description.
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor/camera'
+      - pattern_type: ts_import
+        pattern: '@capacitor/camera'
+      - pattern_type: js_api
+        pattern: 'navigator.mediaDevices.getUserMedia'
+
+  - key: ''
+    label: Microphone
+    capability: Microphone
+    requires_developer_account: false
+    usage_strings:
+      - NSMicrophoneUsageDescription
+    notes: >-
+      Required whenever the app records audio. WKWebView's getUserMedia()
+      audio track requires the same string as native AVAudioRecorder.
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor/voice-recorder'
+      - pattern_type: ts_import
+        pattern: '@capacitor/voice-recorder'
+
+  - key: ''
+    label: Location
+    capability: Location
+    requires_developer_account: false
+    usage_strings:
+      - NSLocationWhenInUseUsageDescription
+    notes: >-
+      Foreground-only. If background location is needed, additionally add
+      NSLocationAlwaysAndWhenInUseUsageDescription and the location background
+      mode (we don't auto-enable that — too easy to over-permission).
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor/geolocation'
+      - pattern_type: ts_import
+        pattern: '@capacitor/geolocation'
+      - pattern_type: js_api
+        pattern: 'navigator.geolocation.getCurrentPosition'
+      - pattern_type: js_api
+        pattern: 'navigator.geolocation.watchPosition'
+
+  - key: ''
+    label: Photo Library
+    capability: PhotoLibrary
+    requires_developer_account: false
+    usage_strings:
+      - NSPhotoLibraryUsageDescription
+      - NSPhotoLibraryAddUsageDescription
+    notes: >-
+      Read access uses NSPhotoLibraryUsageDescription; write-only access uses
+      NSPhotoLibraryAddUsageDescription. We emit both because the Capacitor
+      Camera plugin can do either depending on configuration.
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor/photo-library'
+      - pattern_type: ts_import
+        pattern: '@capacitor/photo-library'
+
+  - key: ''
+    label: Contacts
+    capability: Contacts
+    requires_developer_account: false
+    usage_strings:
+      - NSContactsUsageDescription
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor-community/contacts'
+      - pattern_type: ts_import
+        pattern: '@capacitor-community/contacts'
+
+  - key: ''
+    label: Calendar
+    capability: Calendar
+    requires_developer_account: false
+    usage_strings:
+      - NSCalendarsUsageDescription
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor-community/calendar'
+      - pattern_type: ts_import
+        pattern: '@capacitor-community/calendar'
+
+  - key: ''
+    label: Bluetooth
+    capability: Bluetooth
+    requires_developer_account: false
+    usage_strings:
+      - NSBluetoothAlwaysUsageDescription
+    notes: >-
+      iOS 13+ uses NSBluetoothAlwaysUsageDescription regardless of foreground
+      vs background. The legacy NSBluetoothPeripheralUsageDescription is only
+      required if the app supports iOS 12 or earlier (we target 15+, so we
+      don't emit it).
+    patterns:
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor-community/bluetooth-le'
+      - pattern_type: ts_import
+        pattern: '@capacitor-community/bluetooth-le'
+      - pattern_type: js_api
+        pattern: 'navigator.bluetooth.requestDevice'

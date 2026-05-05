@@ -26,6 +26,11 @@ def format_branch_explainer(commit: CommitInfo) -> str:
         "  • Tests/          one stub per converted screen",
         "  • .ios-conversion/  five reports, including generation-summary.md",
         "                    with per-file confidence scores",
+        "  • project.yml     XcodeGen spec (Step 8) — generates the .xcodeproj",
+        "",
+        "Build:",
+        "  cd <output-dir>",
+        "  xcodegen generate && open *.xcodeproj",
     ]
     if commit.needs_review:
         base_lines.append("")
