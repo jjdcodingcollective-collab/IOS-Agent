@@ -1,6 +1,6 @@
 # References
 
-Last curated: 2026-05-04 (Wrapper Phase 5 shipped — `--open-pr`; wrapper roadmap complete)
+Last curated: 2026-05-05 (MVP Tier 1 closed — Steps 6/7/8 shipped; XcodeGen project generation online; 233 tests green)
 
 ## Sources
 
@@ -15,6 +15,8 @@ Last curated: 2026-05-04 (Wrapper Phase 5 shipped — `--open-pr`; wrapper roadm
 
 ### Key Plans
 
+- `plans/mvp-tier-0-tier-1.md` — MVP Tier 0 + Tier 1 plan; **all 8 steps shipped 2026-05-05**. Step 6 (privacy scanner), Step 7 (three-layer report), Step 8 (XcodeGen project generation). Tier 1 closed.
+- `docs/mvp-scope.md` — authoritative MVP scope reference. Web → Wrap mode only; everything else explicitly deferred. Binding; marketing copy and product UI must conform.
 - `plans/gap-analysis-and-build-guide.md` — capability matrix and full
   remediation plan. **All 15 original BUILD items complete.** Revised
   2026-05-04 to add dimension 6 (Documentation & Source-Language Coverage),
@@ -78,7 +80,9 @@ Phase E Tier 3/4 — BUILD-27/28/30 (2026-05-04, Phase E complete):
 python -m wrapper convert <path>             # local only (Phase 1)
 python -m wrapper convert-from-github <url>  # clone + convert + commit + push (Phases 2/3) + polish (Phase 4)
   --branch <name>       override ios-conversion default
-  --app-name <name>     override derived app name
+  --app-name <name>     override derived app name (Tier 1 Step 6)
+  --bundle-id <id>      reverse-DNS bundle id; defaults to placeholder (Tier 1 Step 8)
+  --team-id <id>        10-char Apple developer team id; defaults to placeholder (Tier 1 Step 8)
   --source-subdir <dir> scope to monorepo subdirectory
   --no-validate         skip structural validation
   --yes                 skip confirmation prompt; implies --push
@@ -87,7 +91,38 @@ python -m wrapper convert-from-github <url>  # clone + convert + commit + push (
   --no-push             commit locally only; do not push (Phase 3)
   --brief               suppress metadata banner + educational block (Phase 4)
   --open-pr             after push, invoke `gh pr create` to open the PR (Phase 5)
+  --allow-unsupported   bypass compatibility-matrix gate (Tier 0 Step 2 dev override)
 ```
+
+### MVP Tier 1 — Compliance & Project Generation (2026-05-05)
+
+- `config/apple-entitlements.yaml` — 12-capability entitlement catalogue (key + label + patterns + `requires_developer_account` + usage strings). Drives Layer A vs Layer B routing.
+- `config/compatibility-matrix.yaml` — Source × target matrix; only `web × wrap` is `supported: true` for MVP.
+- `schemas/report.schema.json` — three-layer report JSON schema (Step 7.1). Validated by `converter/compliance/privacy_manifest._validate_against_schema` (nullable-type aware).
+- `converter/compliance/privacy_scanner.py` — five required-reason API families (`UserDefaults` / `FileManager` / `SystemBoot` / disk-space / active-keyboard).
+- `converter/compliance/privacy_manifest.py` — `PrivacyInfo.xcprivacy` generator + plist round-trip.
+- `converter/compliance/entitlement_scanner.py` — JS-API + Capacitor-plugin pattern matcher; emits `EntitlementFinding` with capability, label, usage strings, `requires_developer_account` flag.
+- `converter/reports/three_layer_emitter.py` — builds `ThreeLayerReport` from compliance + emitter findings; routes by severity.
+- `converter/reports/renderers.py` — Markdown + JSON renderers; both files written to the output dir.
+- `converter/xcode_project/emitter.py` — `XcodeSpec` + `emit_xcode_project()`; atomic per-file writes + re-parse validation; placeholder findings (bundle-id / team-id / app-icon / launch-screen / privacy-manifest).
+- `converter/xcode_project/templates/` — `xcodegen.yml.tmpl`, `Info.plist.tmpl`, `AppDelegate.swift.tmpl`, `LaunchScreen.storyboard`, `Assets.xcassets/AppIcon.appiconset/{Contents.json,icon-1024.png}` (1024×1024 PNG built from stdlib `struct` + `zlib`, no third-party deps).
+- `wrapper/compatibility.py` — loads matrix, `assert_supported()` gate (Tier 0 Step 2).
+- `wrapper/compliance_step.py` — runs scanners + writes `PrivacyInfo.xcprivacy` (Tier 1 Step 6).
+- `wrapper/xcode_step.py` — drives the emitter from the wrapper post-convert pipeline (Tier 1 Step 8.4).
+- `wrapper/__main__.py` — `_run_post_conversion_steps` (renamed from `_run_compliance_with_report`); writes `report.md` + `report.json`.
+
+### CI
+
+- `.github/workflows/test.yml` — first CI workflow.
+  - **Linux job**: builds XcodeGen 2.39 from source (`swift build`), runs the converter + wrapper test suites, and validates a generated `project.yml` end-to-end.
+  - **macOS job**: gated to `main` push events and the `macos-ci` PR label. Generates the project, then runs `xcodebuild -scheme App build CODE_SIGNING_ALLOWED=NO`.
+
+### Tests
+
+- Converter: `python3 -m unittest discover -t . -s converter` — 137 tests. (`-t .` keeps relative imports in `converter/__init__.py` modules resolvable.)
+- Wrapper: `python3 -m unittest discover -s wrapper` — 96 tests.
+- Combined: 233 green.
+- Notable Step 8 suites: `converter/xcode_project/tests/test_emitter.py` (spec validation, file emission, plist contents, placeholder findings), `converter/xcode_project/tests/test_templates.py` (template substitution + XML/JSON parse), `converter/compliance/tests/test_entitlement_scanner.py`, `wrapper/tests/test_xcode_integration.py`, `wrapper/tests/test_report_integration.py` (covers Step 8 via the renamed `_run_post_conversion_steps`).
 
 ### Wrapper modules
 

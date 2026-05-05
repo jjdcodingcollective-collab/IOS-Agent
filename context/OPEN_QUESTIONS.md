@@ -4,7 +4,7 @@ The chat agent should inspect this file when Project Knowledge is enabled, then 
 
 ## Active
 
-- **Converter source-language expansion.** Phase E shipped seven source-language chapters (Kotlin, Java, Python, C#, Dart/Flutter, Go/Ruby/PHP) in `docs/`, plus three interop chapters (ObjC, C++, Rust). The converter remains TypeScript-only. Does the converter follow (Kotlin → Swift, Java → Swift converters), and on what timeline? Currently un-scoped — defer until wrapper Phase 4/5 ship and we have real-user signal on which source language to add second. Recorded 2026-05-04, status unchanged after Phase E completion.
+- **Converter source-language expansion.** Phase E shipped seven source-language chapters (Kotlin, Java, Python, C#, Dart/Flutter, Go/Ruby/PHP) in `docs/`, plus three interop chapters (ObjC, C++, Rust). The converter remains TypeScript-only. Does the converter follow (Kotlin → Swift, Java → Swift converters), and on what timeline? Explicitly **out of scope for MVP** per `docs/mvp-scope.md` §2 (Java/Kotlin → Phase 2; Python → Phase 5). The MVP-tier-0-tier-1 plan reaffirmed this 2026-05-05. The question now is whether real-user signal post-MVP-launch justifies starting Phase 2 with Kotlin (near-twin language, smallest converter delta) or Java (largest enterprise audience). Recorded 2026-05-04; deferred again 2026-05-05 after Tier 1 closure.
 
 ## Resolved
 
