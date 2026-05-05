@@ -1,7 +1,7 @@
 # Plan: MVP Tier 0 + Tier 1 — Lock Scope, Then Build the Spine
 
 **Source:** `MVP-Gap-Analysis.md` (saved to `/storage/outputs/ios-agent/`)
-**Status:** Tier 0 complete (all 5 steps shipped 2026-05-05). Tier 1 Step 6 ✅ complete (all 7 sub-steps shipped 2026-05-05). Tier 1 Steps 7 and 8 not started.
+**Status:** Tier 0 complete (all 5 steps shipped 2026-05-05). Tier 1 Step 6 ✅ complete (all 7 sub-steps shipped 2026-05-05). Tier 1 Step 7 in progress — sub-plan drafted, sub-step 7.1 (schema) shipped 2026-05-05; 7.2 → 7.6 pending. Tier 1 Step 8 not started.
 **Owner:** Product / Tech Lead
 **Created:** 2026-05-05
 **Strategy:** "Docs first, converter second." Tier 0 lands as decisions and documentation. Tier 1 is the engineering spine every later BLOCKING item plugs into.
@@ -134,7 +134,9 @@ Once Tier 0 is locked, these are the dependency roots. Every remaining BLOCKING 
 
 ---
 
-### Step 7 — Three-layer report structure (gap §7.1)
+### Step 7 — Three-layer report structure (gap §7.1) — in progress
+
+**Status:** Sub-plan tracked at `plans/tier-1-step-7-three-layer-report.md`. Sub-step 7.1 (`schemas/report.schema.json` + bounded-validator nullable-type-list extension) shipped 2026-05-05. Sub-steps 7.2 (emitter), 7.3 (renderers), 7.4 (scanner retrofit), 7.5 (wrapper integration), 7.6 (tests) pending.
 
 **Why before the pre-flight scanner:** Every compliance and translation component will emit findings. Define the schema first, or every component retrofits later.
 

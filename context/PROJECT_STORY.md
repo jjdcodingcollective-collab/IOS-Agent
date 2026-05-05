@@ -1,6 +1,6 @@
 # Project Story
 
-Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 ✅ complete — all 7 sub-steps shipped)
+Last curated: 2026-05-05 (Tier 0 complete; Tier 1 Step 6 ✅ complete; Tier 1 Step 7 sub-step 7.1 shipped — schema + validator extension)
 
 ## Narrative
 
@@ -160,3 +160,20 @@ the manifest before commit so it lands in the conversion branch).
 Compliance failures surface as warnings, not hard fails; Step 7's
 pre-flight scanner is the ship-gate. 54 tests cover the work (25 scanner
 + 21 manifest + 8 wrapper-step), all green.
+
+**Tier 1 Step 7 began the same day.** The sub-plan at
+`plans/tier-1-step-7-three-layer-report.md` defines a six-step path:
+schema → emitter → renderers → scanner retrofit → wrapper integration →
+tests. Sub-step 7.1 shipped: `schemas/report.schema.json` formalises
+the three-layer report (A blockers / B manual review / C learnings)
+with `Source`, `Finding`, `LearningPattern`, and `Provenance` `$defs`,
+version-pinned at `1.0.0`, every object `additionalProperties: false`.
+Provenance fields (`model`, `prompt_template`, `seed`) are reserved but
+nullable — no MVP producer populates them; Bridge/Port phases will. The
+bounded validator in `converter/compliance/privacy_manifest.py` gained
+support for JSON Schema's array-form `type` (e.g. `["string", "null"]`)
+so nullable fields validate cleanly without bumping to a third-party
+`jsonschema` dep. The 54 compliance tests still pass after the
+extension; five manual validation cases (empty report, populated
+report, missing required, bad enum, unknown layer key) all behave
+correctly. Sub-step 7.2 (emitter library) is next.

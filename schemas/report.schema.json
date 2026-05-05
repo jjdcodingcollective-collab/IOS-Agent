@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ios-agent/schemas/report.schema.json",
+  "title": "ios-agent conversion report",
+  "description": "Three-layer conversion-report schema. Layer A = blockers (must fix before ship). Layer B = manual review (compiles but suspicious). Layer C = learnings (cross-cutting patterns and stats). Validated by the bounded JSON Schema subset in converter/compliance/privacy_manifest.py — see x-validator-keywords.",
+
+  "x-schema-version": "1.0.0",
+  "x-validator-keywords": [
+    "type", "required", "enum", "properties", "additionalProperties (false-only)",
+    "items", "minItems", "uniqueItems", "pattern", "$ref", "$defs"
+  ],
+  "x-related-files": [
+    "converter/report/emitter.py",
+    "converter/report/render.py",
+    "plans/tier-1-step-7-three-layer-report.md"
+  ],
+  "x-update-policy": "Field additions: bump x-schema-version minor; renderers must tolerate missing optional fields. Field removals or required-field changes: bump major and update every producer.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "tool_version",
+    "source",
+    "layer_a_blockers",
+    "layer_b_manual_review",
+    "layer_c_learnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of this schema. Producers stamp the version they were authored against."
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "ISO-8601 UTC timestamp, second precision, trailing Z."
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable tool identifier, e.g. 'ios-agent 0.1.0'."
+    },
+    "source": { "$ref": "#/$defs/Source" },
+    "layer_a_blockers": {
+      "type": "array",
+      "description": "Findings that block ship. Each must include a recommended fix.",
+      "items": { "$ref": "#/$defs/Finding" }
+    },
+    "layer_b_manual_review": {
+      "type": "array",
+      "description": "Findings that compile but warrant a human look. Carry a per-symbol confidence score.",
+      "items": { "$ref": "#/$defs/Finding" }
+    },
+    "layer_c_learnings": {
+      "type": "array",
+      "description": "Cross-cutting patterns the conversion saw, with refactor recommendations and (when rev > 1) trend deltas.",
+      "items": { "$ref": "#/$defs/LearningPattern" }
+    }
+  },
+
+  "$defs": {
+    "Source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archetype", "target_mode", "root", "rev"],
+      "properties": {
+        "archetype": {
+          "type": "string",
+          "enum": ["web", "java", "kotlin", "typescript", "python", "objc"],
+          "description": "Source-side archetype, matches the compatibility-matrix vocabulary."
+        },
+        "target_mode": {
+          "type": "string",
+          "enum": ["wrap", "bridge", "port"],
+          "description": "Output mode. MVP only ships wrap."
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Filesystem path or URL the conversion was run against."
+        },
+        "rev": {
+          "type": "integer",
+          "description": "Conversion revision number. Starts at 1; increments on subsequent runs against the same target branch."
+        }
+      }
+    },
+
+    "Finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "category",
+        "severity",
+        "producer",
+        "file",
+        "line",
+        "original_snippet",
+        "attempted_translation",
+        "reason",
+        "recommended_fix",
+        "doc_link"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier within a single report. Producer-prefixed, e.g. 'compliance.required-reason-api.userdefaults#0'."
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short tag, e.g. 'compliance.privacy-manifest', 'translation.force-unwrap'."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["blocker", "warning", "info"]
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Module that emitted this finding, e.g. 'compliance.api_scanner'."
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Repo-relative path. Synthetic findings (e.g. capacitor-plugin-derived) use a sentinel like '(plugins)'."
+        },
+        "line": {
+          "type": "integer",
+          "description": "1-based line number, or 0 for synthetic findings without a source location."
+        },
+        "original_snippet": {
+          "type": "string",
+          "description": "The matched source text, may be empty for synthetic findings."
+        },
+        "attempted_translation": {
+          "type": ["string", "null"],
+          "description": "Producer's attempted translation, or null. Compliance findings always set null."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Plain-English explanation of why this was flagged."
+        },
+        "recommended_fix": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the developer should do."
+        },
+        "doc_link": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URL to the canonical documentation for this finding."
+        },
+        "confidence_score": {
+          "type": ["number", "null"],
+          "description": "Per-symbol confidence in [0.0, 1.0]. Layer A omits or sets null. Layer B carries a value. Range is enforced in the emitter, not the schema."
+        },
+        "provenance": { "$ref": "#/$defs/Provenance" }
+      }
+    },
+
+    "Provenance": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "LLM-translation provenance. All fields reserved for the Bridge/Port phases — every MVP producer sets null.",
+      "properties": {
+        "model": { "type": ["string", "null"] },
+        "prompt_template": { "type": ["string", "null"] },
+        "seed": { "type": ["string", "integer", "null"] }
+      }
+    },
+
+    "LearningPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pattern",
+        "occurrences",
+        "applied_translation",
+        "untranslatable_count",
+        "refactor_recommendation"
+      ],
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short identifier for the pattern, e.g. 'localStorage-via-capacitor-preferences'."
+        },
+        "occurrences": {
+          "type": "integer",
+          "description": "Number of times the pattern was seen in this run."
+        },
+        "applied_translation": {
+          "type": "string",
+          "description": "What the tool did with this pattern."
+        },
+        "untranslatable_count": {
+          "type": "integer",
+          "description": "Of the occurrences, how many could not be translated cleanly."
+        },
+        "refactor_recommendation": {
+          "type": "string",
+          "description": "What the developer can change in the source to improve future conversions."
+        },
+        "prior_rev_confidence": {
+          "type": ["number", "null"],
+          "description": "Aggregate confidence from the prior revision, or null if this is rev 1."
+        },
+        "delta": {
+          "type": ["number", "null"],
+          "description": "Confidence change vs prior_rev_confidence, or null if not applicable."
+        }
+      }
+    }
+  }
+}

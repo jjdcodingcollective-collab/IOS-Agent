@@ -200,7 +200,8 @@ def _as_str_list(value: Any) -> list[str]:
 
 # --- schema validation -------------------------------------------------------
 #
-# Bounded JSON Schema subset: type, required, enum, properties,
+# Bounded JSON Schema subset: type (scalar or list — list form supports
+# "null" for nullable fields), required, enum, properties,
 # additionalProperties (false-only), items, minItems, uniqueItems,
 # pattern, allOf, if/then, $defs / $ref (intra-document only).
 #
@@ -264,15 +265,45 @@ def _validate(
 
     expected_type = schema.get("type")
     if expected_type:
-        py_type = _TYPE_CHECKS.get(expected_type)
-        if py_type is None:
-            errors.append(f"{path}: unsupported schema type {expected_type!r}")
+        # JSON Schema allows "type" to be a list of allowed types, e.g.
+        # ["string", "null"] for a nullable field. Treat the scalar form
+        # as a one-element list for uniform handling.
+        type_list = (
+            expected_type if isinstance(expected_type, list) else [expected_type]
+        )
+        py_types: list[Any] = []
+        unsupported: list[str] = []
+        for t in type_list:
+            mapped = _TYPE_CHECKS.get(t)
+            if mapped is None and t != "null":
+                unsupported.append(t)
+            else:
+                py_types.append(mapped)  # None encodes the "null" branch
+        if unsupported:
+            errors.append(
+                f"{path}: unsupported schema type(s) {unsupported!r}"
+            )
             return
-        # JSON Schema booleans are not numbers; guard the (int,float) overlap.
-        if expected_type in ("number", "integer") and isinstance(data, bool):
+
+        # JSON Schema booleans are not numbers; guard the (int,float) overlap
+        # only when number/integer are the *only* allowed types.
+        numeric_only = set(type_list).issubset({"number", "integer"})
+        if numeric_only and isinstance(data, bool):
             errors.append(f"{path}: expected {expected_type}, got boolean")
             return
-        if not isinstance(data, py_type):
+
+        matched = False
+        for py_type in py_types:
+            if py_type is None:
+                if data is None:
+                    matched = True
+                    break
+            elif isinstance(data, py_type) and not (
+                py_type is int and isinstance(data, bool) and "integer" in type_list
+            ):
+                matched = True
+                break
+        if not matched:
             errors.append(
                 f"{path}: expected {expected_type}, got {type(data).__name__}"
             )
