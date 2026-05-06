@@ -1432,7 +1432,7 @@ once the surface area grew.
 | Testing | ✅ Working | ~70% | Per-ViewModel + per-service XCTest stubs with MockURLProtocol (BUILD-10) |
 | Next.js support | ⚠️ Partial | ~50% | Detector + image/head/lazy/styling translators (BUILD-7); SSR still flagged manual |
 | Accessibility | ✅ Working | ~75% | ARIA → SwiftUI a11y modifiers (BUILD-5) |
-| GitHub round-trip wrapper | ✅ Working (Phase 2) | clone + convert + local branch with revisions and update-notes; push pending Phase 3 |
+| GitHub round-trip wrapper | ✅ Working (Phase 5 — complete) | clone + convert + commit + push + `--open-pr` via `gh pr create`; pre-flight metadata banner; post-flight PR command; `--brief` flag |
 
 ### Real-world validation (2026-05-04)
 
