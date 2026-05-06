@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-05 (MVP Tier 1 closed — Steps 6/7/8 shipped; 233 tests green; XcodeGen project generation online)
+Last curated: 2026-05-06 (MVP §6.2 pre-flight scanner shipped; 260 tests green)
 
 ## Current State
 
@@ -57,23 +57,22 @@ against a real repo — that is the natural next smoke test.
 
 ## What's Next
 
-Tier 1 is closed. The natural next plan is **MVP gap §6.2 — pre-flight
-compliance scanner** (the developer-facing CLI that runs the privacy
-scanner + entitlement scanner + emitter dry-run + report builder
-*before* a conversion run, so a failing repo never enters the converter
-in the first place). It reuses every component shipped in Steps 6/7/8 —
-no new engine work, just a CLI surface and a fail-fast harness.
+MVP §6.2 (pre-flight scanner) shipped 2026-05-06. `python -m wrapper
+preflight <path>` now scans for App Store compliance issues before any
+conversion runs. Exit codes: 0 = clear, 1 = Layer-A blockers, 2 = scan
+error. 27 new unit tests; 260 total green.
 
-Two smaller follow-ons are also queued:
+Remaining tracks (user picks):
 
-1. End-to-end smoke run of Step 8 against the `the-survival-bible`
-   repo (or another small Capacitor-shaped fixture), to confirm the
-   emitter's Layer A placeholder findings render correctly in the
-   wrapper's triage summary and that `xcodegen generate` succeeds on
-   real macOS hardware.
-2. The still-open documentation question on converter source-language
-   expansion (see `context/OPEN_QUESTIONS.md`) — out-of-scope for MVP
-   per `docs/mvp-scope.md` but a recurring user ask.
+1. **End-to-end smoke run** of the Step 8 XcodeGen emitter against the
+   `the-survival-bible` repo (or another small Capacitor fixture) to
+   confirm `xcodegen generate` works and Layer-A placeholder findings
+   render correctly in the wrapper's triage output.
+2. **MVP gap §4.x compliance items** (ATT detection, SIWA, usage strings,
+   ATS, 4.2 enforcement) — all reuse the Step 6/7 scanner + report
+   substrate; this is the next structured engineering plan.
+3. The still-open documentation question on converter source-language
+   expansion (out-of-scope for MVP per `docs/mvp-scope.md`).
 
 There is no auto-queued next phase; the user picks the next track.
 
@@ -91,7 +90,8 @@ There is no auto-queued next phase; the user picks the next track.
 - `schemas/report.schema.json` — Step 7.1 (three-layer report schema; nullable-type validator).
 - `converter/xcode_project/emitter.py` + `converter/xcode_project/templates/` — Step 8.3 (XcodeGen spec emitter + 6 templates incl. 1024×1024 PNG).
 - `wrapper/compatibility.py` + `wrapper/compliance_step.py` + `wrapper/xcode_step.py` — wrapper-side glue.
-- `wrapper/__main__.py` — `convert` and `convert-from-github` subcommands; new `--bundle-id`, `--team-id`, `--app-name` flags.
+- `wrapper/preflight.py` — MVP §6.2 pre-flight scanner; `run_preflight()` + `PreflightResult` + `format_preflight_report()`.
+- `wrapper/__main__.py` — `convert`, `convert-from-github`, `preflight` subcommands.
 - `.github/workflows/test.yml` — Linux + macOS CI; macOS gated to `main` push and `macos-ci` label.
 
 ### Wrapper roadmap (2026-05-04, complete)
@@ -105,8 +105,8 @@ There is no auto-queued next phase; the user picks the next track.
 ### Tests
 
 - Converter: `python3 -m unittest discover -t . -s converter` (137 tests).
-- Wrapper: `python3 -m unittest discover -s wrapper` (96 tests).
-- Combined: 233 green.
+- Wrapper: `python3 -m unittest discover -s wrapper` (123 tests; +27 preflight).
+- Combined: 260 green.
 
 ## Git Identity (this repo)
 

@@ -109,7 +109,8 @@ python -m wrapper convert-from-github <url>  # clone + convert + commit + push (
 - `wrapper/compatibility.py` — loads matrix, `assert_supported()` gate (Tier 0 Step 2).
 - `wrapper/compliance_step.py` — runs scanners + writes `PrivacyInfo.xcprivacy` (Tier 1 Step 6).
 - `wrapper/xcode_step.py` — drives the emitter from the wrapper post-convert pipeline (Tier 1 Step 8.4).
-- `wrapper/__main__.py` — `_run_post_conversion_steps` (renamed from `_run_compliance_with_report`); writes `report.md` + `report.json`.
+- `wrapper/preflight.py` — MVP §6.2: `run_preflight()` + `PreflightResult` + `format_preflight_report()`; no file writes; exit code 0/1/2.
+- `wrapper/__main__.py` — `convert`, `convert-from-github`, `preflight` subcommands; `_run_post_conversion_steps` writes `report.md` + `report.json`.
 
 ### CI
 
@@ -120,9 +121,10 @@ python -m wrapper convert-from-github <url>  # clone + convert + commit + push (
 ### Tests
 
 - Converter: `python3 -m unittest discover -t . -s converter` — 137 tests. (`-t .` keeps relative imports in `converter/__init__.py` modules resolvable.)
-- Wrapper: `python3 -m unittest discover -s wrapper` — 96 tests.
-- Combined: 233 green.
+- Wrapper: `python3 -m unittest discover -s wrapper` — 123 tests (+27 preflight).
+- Combined: 260 green.
 - Notable Step 8 suites: `converter/xcode_project/tests/test_emitter.py` (spec validation, file emission, plist contents, placeholder findings), `converter/xcode_project/tests/test_templates.py` (template substitution + XML/JSON parse), `converter/compliance/tests/test_entitlement_scanner.py`, `wrapper/tests/test_xcode_integration.py`, `wrapper/tests/test_report_integration.py` (covers Step 8 via the renamed `_run_post_conversion_steps`).
+- `wrapper/tests/test_preflight.py` — 27 tests; `mock.patch` stubs `scan_all`/`scan_all_entitlements` so no real filesystem scan.
 
 ### Wrapper modules
 
@@ -133,8 +135,10 @@ python -m wrapper convert-from-github <url>  # clone + convert + commit + push (
 - `wrapper/repo_metadata.py` — Phase 4: GitHub URL parser, REST `/repos/{owner}/{repo}` fetch, banner formatter; soft-fails on every error path
 - `wrapper/post_flight.py` — Phase 4: `gh pr create` formatter + `compare/<base>...<head>?expand=1` URL fallback
 - `wrapper/explainer.py` — Phase 4: educational "What's on this branch" block (two flavours, depending on `Requires-more-review/` prefix)
+- `wrapper/preflight.py` — MVP §6.2: `run_preflight()` scans without converting; `PreflightResult` carries blockers/warnings/errors/exit_code; `format_preflight_report()` renders human output; `--brief` flag suppresses per-finding detail
 - `wrapper/pr_ops.py` — Phase 5: `gh_available()` (detects `gh` + auth) and `open_pr()` (invokes `gh pr create`, 60s timeout, PR-URL regex extraction); hard-fail on missing/unauthenticated `gh`
+- `wrapper/tests/test_preflight.py` — 27 tests; scanners mocked, no real I/O
 - `wrapper/tests/test_repo_metadata.py` — 33 tests
 - `wrapper/tests/test_post_flight.py` — 24 tests; covers `post_flight` and `explainer`
 - `wrapper/tests/test_pr_ops.py` — 15 tests; `mock.patch` stubs `subprocess.run` and `shutil.which` so no real `gh` calls
-- Run all wrapper tests (72 total): `python3 -m unittest discover -s wrapper`
+- Run all wrapper tests (123 total): `python3 -m unittest discover -s wrapper`

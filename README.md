@@ -12,6 +12,13 @@
 
 Two ways to use it:
 
+**0. Pre-flight scan** — check a source tree for App Store compliance issues before converting:
+```
+python -m wrapper preflight path/to/typescript-app
+# Exit 0 = clear, 1 = Layer-A blockers (App Store rejection risk), 2 = scan error
+# Add --brief for a compact verdict-only output
+```
+
 **1. Local conversion** — point it at a TS project on disk:
 ```
 python -m wrapper convert path/to/typescript-app --app-name MyApp
@@ -183,7 +190,9 @@ Tier 1 Step 8 (Xcode project generation via XcodeGen — gap §5.1) is now compl
 - Step 8.5: `.github/workflows/test.yml` — first CI workflow. Linux job runs the full Python suite, runs the wrapper end-to-end against an inline Capacitor fixture, asserts every expected artifact lands, builds XcodeGen 2.39 from source on the cheap Ubuntu runner, and validates the emitted `project.yml` with `xcodegen --spec ... --quiet --no-cache`. macOS job (gated to `main` push and PRs labelled `macos-ci`) runs `xcodegen generate` + `xcodebuild` with `CODE_SIGNING_ALLOWED=NO` to confirm the project builds clean without requiring a real Team ID.
 - Step 8.6: 36 new tests — 13 entitlement-scanner detection tests (`converter/compliance/tests/test_entitlement_scanner.py` covering rule loading invariants, every pattern type, dedup, and the `to_findings` severity routing for both Layer A and Layer B), 14 emitter tests (`converter/xcode_project/tests/test_emitter.py` covering spec validation, file emission, plist round-trip, every placeholder finding type, and the always-emitted icon + launch-screen blockers), 7 template invariant tests (`converter/xcode_project/tests/test_templates.py` pinning every emitter token, PNG signature + 1024×1024 dimensions, XML parseability), and 2 end-to-end wrapper integration tests (`wrapper/tests/test_xcode_integration.py` confirming the full Step 6 + Step 8 pipeline drives one report through `ReportBuilder.build()`'s schema validator). Plus an update to `wrapper/tests/test_report_integration.py` for the renamed function. 233 tests total, all green.
 
-Tier 1 is now complete. The next plan (gap §6.2) introduces the pre-flight scanner that consumes Layer-A findings to gate ship-readiness.
+Tier 1 is now complete. Gap §6.2 (pre-flight scanner) shipped 2026-05-06.
+
+**2026-05-06** *(MVP gap §6.2 shipped — pre-flight compliance scanner)* — New `python -m wrapper preflight <path>` subcommand scans a source tree for App Store compliance issues without converting it. `wrapper/preflight.py` runs the privacy API scanner and the entitlement scanner, captures `ScannerError` from either without aborting the other (partial results are useful), converts raw findings to `report.Finding` objects, and routes by severity: API findings → Layer-A blockers; entitlements with `requires_developer_account` → Layer-A; permission-only → Layer-B warnings. `PreflightResult` dataclass carries `blockers`, `warnings`, `api_findings`, `ent_findings`, `errors`, and an `exit_code` property (0 = clear, 1 = Layer-A blockers, 2 = scan error). `format_preflight_report()` renders the human-readable verdict with per-finding detail; `--brief` suppresses detail and the next-steps block. `cmd_preflight()` in `wrapper/__main__.py` wires the argparse subcommand and propagates the exit code. 27 new unit tests in `wrapper/tests/test_preflight.py` covering `PreflightResult` properties, `run_preflight` with mocked scanners (clean, blocked, warnings, partial scan, error capture), `format_preflight_report` output shapes, and the argparse subcommand round-trip. 260 tests total, all green.
 
 **2026-05-04** *(Wrapper Phase 5 shipped — `--open-pr` via `gh pr create`; wrapper roadmap complete)* — New module `wrapper/pr_ops.py` adds `gh_available()` (checks `shutil.which("gh")` + `gh auth status`, returns a clear install/login hint on failure) and `open_pr(repo_path, *, base, head, title, body_path)` which invokes `gh pr create` from inside the repo with a 60s timeout, captures stdout/stderr, and extracts the PR URL via regex (last `https://github.com/.../pull/<n>` match wins). New `--open-pr` flag on `convert-from-github` (off by default — opening a PR is irreversible: notifications, CI, teammates) reuses the Phase 4 `(base, head, title, body-file)` tuple, gates on a successful push, and refuses the incoherent `--no-push --open-pr` combination at the argparse layer. Existing-PR collisions surface gh's own stderr ("a pull request for branch X already exists"). Read-only fallback preserved exactly as Phase 3 left it: a failed push still prints the manual `git push -u` retry instruction and never attempts a PR. 15 new unit tests using `unittest.mock.patch` for `subprocess.run` and `shutil.which` — no real `gh` calls in tests; 72 wrapper tests total. Plan: `plans/wrapper-phase-5-open-pr.md`. **The wrapper roadmap is now complete.**
 

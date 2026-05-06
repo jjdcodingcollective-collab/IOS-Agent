@@ -191,14 +191,20 @@ Out of scope for Phase 3 (covered by Phase 5):
   `open_pr()` (success, existing-PR error, body-file inclusion/omission,
   cwd respected, success-without-URL, timeout). No real `gh` invocations.
 
-## Wrapper surface (delivered through Phase 3)
+## Wrapper surface (delivered through Phase 5 + MVP §6.2)
 
 ```
+python -m wrapper preflight <source-dir>          ← MVP §6.2; exit 0=clear 1=blocked 2=error
+    [--brief]                  suppress per-finding detail; print only verdict + counts
+
 python -m wrapper convert <source-dir>
     [--output PATH]            default: workspace/<name>-ios
     [--app-name NAME]          default: MyApp
+    [--bundle-id ID]           default: com.example.<slug> (triggers Layer-A finding)
+    [--team-id ID]             default: TODO_TEAMID (triggers Layer-A finding)
     [--no-validate]
     [--yes]
+    [--brief]
 
 python -m wrapper convert-from-github <github-url>
     [--branch NAME]            default: ios-conversion
@@ -206,6 +212,8 @@ python -m wrapper convert-from-github <github-url>
     [--workdir PATH]           clone destination root
     [--output PATH]
     [--app-name NAME]
+    [--bundle-id ID]
+    [--team-id ID]
     [--depth N]                shallow clone
     [--reuse-clone]            don't re-clone if dest already exists
     [--no-validate]
