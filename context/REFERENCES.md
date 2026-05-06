@@ -1,6 +1,6 @@
 # References
 
-Last curated: 2026-05-05 (MVP Tier 1 closed — Steps 6/7/8 shipped; XcodeGen project generation online; 233 tests green)
+Last curated: 2026-05-06 (MVP §6.2 pre-flight scanner shipped; 260 tests green)
 
 ## Sources
 

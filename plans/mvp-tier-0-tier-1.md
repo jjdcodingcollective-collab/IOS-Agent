@@ -1,7 +1,7 @@
 # Plan: MVP Tier 0 + Tier 1 — Lock Scope, Then Build the Spine
 
 **Source:** `MVP-Gap-Analysis.md` (saved to `/storage/outputs/ios-agent/`)
-**Status:** Tier 0 complete (all 5 steps shipped 2026-05-05). Tier 1 Step 6 ✅ complete. Tier 1 Step 7 ✅ complete (62 new tests, 197 total green). Tier 1 Step 8 ✅ complete (all 6 sub-steps shipped 2026-05-05): entitlement scanner + 12-capability catalogue + XcodeGen spec emitter + 6 templates + wrapper integration (`--bundle-id`, `--team-id`) + Linux+macOS CI workflow + 36 new tests (233 total green). Tier 1 closed.
+**Status:** Tier 0 complete (all 5 steps shipped 2026-05-05). Tier 1 Step 6 ✅ complete. Tier 1 Step 7 ✅ complete (62 new tests, 197 total green). Tier 1 Step 8 ✅ complete (all 6 sub-steps shipped 2026-05-05): entitlement scanner + 12-capability catalogue + XcodeGen spec emitter + 6 templates + wrapper integration (`--bundle-id`, `--team-id`) + Linux+macOS CI workflow + 36 new tests (233 total green). Tier 1 closed. MVP §6.2 (pre-flight compliance scanner) ✅ shipped 2026-05-06: `wrapper/preflight.py` + `preflight` subcommand + 27 new tests (260 total green).
 **Owner:** Product / Tech Lead
 **Created:** 2026-05-05
 **Strategy:** "Docs first, converter second." Tier 0 lands as decisions and documentation. Tier 1 is the engineering spine every later BLOCKING item plugs into.

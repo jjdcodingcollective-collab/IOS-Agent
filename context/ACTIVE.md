@@ -44,12 +44,11 @@ shipped 2026-05-05 across five commits:
   `xcodebuild` with `CODE_SIGNING_ALLOWED=NO` against the generated
   project.
 
-**Test totals.** 233 tests green: 137 converter (`python3 -m unittest
-discover -t . -s converter`) + 96 wrapper (`python3 -m unittest discover -s
-wrapper`). The converter command needs the `-t .` top-level-dir flag to
-keep relative imports inside `converter/__init__.py` modules resolvable. Step 8 alone added 36 new tests (entitlement scanner, emitter
-spec validation, template substitution, plist round-trips, placeholder
-findings, wrapper integration end-to-end).
+**Test totals.** 260 tests green: 137 converter (`python3 -m unittest
+discover -t . -s converter`) + 123 wrapper (`python3 -m unittest discover -s
+wrapper`; +27 from §6.2 preflight). The converter command needs the `-t .`
+top-level-dir flag to keep relative imports inside `converter/__init__.py`
+modules resolvable.
 
 **Real-world validation** is still the 2026-05-04 `the-survival-bible`
 run (50/50 structural pass). Step 8 has not yet been run end-to-end

@@ -246,5 +246,10 @@ to `main` push and PRs labelled `macos-ci`) that runs `xcodegen
 generate` + `xcodebuild` with `CODE_SIGNING_ALLOWED=NO`. Sub-step 8.6
 added 36 new tests (13 scanner + 14 emitter + 7 template + 2 wrapper
 integration); 233 tests total, all green. **Tier 1 is now complete.**
-The next plan (gap §6.2) introduces the pre-flight scanner that
-consumes Layer-A findings to gate ship-readiness.
+
+MVP gap §6.2 (pre-flight compliance scanner) shipped 2026-05-06:
+`python -m wrapper preflight <path>` scans for App Store compliance
+issues without converting. `wrapper/preflight.py` runs both scanners,
+routes findings to Layer-A blockers or Layer-B warnings, and returns a
+`PreflightResult` with an exit code (0 = clear, 1 = blocked, 2 = scan
+error). 27 new unit tests; 260 tests total, all green.
