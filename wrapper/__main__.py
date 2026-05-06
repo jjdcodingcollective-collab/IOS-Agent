@@ -31,6 +31,7 @@ from converter.report import (
 from .compatibility import UnsupportedCombination, assert_supported
 from .compliance_step import run_compliance_step
 from .explainer import format_branch_explainer
+from .preflight import format_preflight_report, run_preflight
 from .xcode_step import run_xcode_step
 from .git_ops import (
     GitError,
@@ -495,6 +496,18 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_preflight(args: argparse.Namespace) -> int:
+    """Scan a source tree for App Store compliance issues without converting it."""
+    source = Path(args.source).resolve()
+    if not source.is_dir():
+        print(f"error: '{source}' is not a directory", file=sys.stderr)
+        return 2
+
+    result = run_preflight(source)
+    print(format_preflight_report(result, source, brief=getattr(args, "brief", False)))
+    return result.exit_code
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="wrapper",
@@ -656,6 +669,18 @@ def build_parser() -> argparse.ArgumentParser:
              "see docs/mvp-scope.md and config/compatibility-matrix.yaml.",
     )
     gh.set_defaults(func=cmd_convert_from_github, open_pr=False)
+
+    pf = sub.add_parser(
+        "preflight",
+        help="Scan a source tree for App Store compliance issues without converting.",
+    )
+    pf.add_argument("source", help="Path to the TypeScript/JavaScript source directory.")
+    pf.add_argument(
+        "--brief",
+        action="store_true",
+        help="Print only the verdict and counts; suppress per-finding detail.",
+    )
+    pf.set_defaults(func=cmd_preflight)
 
     return parser
 
