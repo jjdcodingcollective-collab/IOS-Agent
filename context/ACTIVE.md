@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-20 (Track 1 smoke test complete; template legend bug fixed; rolling into Track 2)
+Last curated: 2026-05-20 (Track 2 §4.x compliance complete — 5 scanners shipped, 363 green)
 
 ## Current State
 
@@ -44,11 +44,10 @@ shipped 2026-05-05 across five commits:
   `xcodebuild` with `CODE_SIGNING_ALLOWED=NO` against the generated
   project.
 
-**Test totals.** 260 tests green: 137 converter (`python3 -m unittest
-discover -t . -s converter`) + 123 wrapper (`python3 -m unittest discover -s
-wrapper`; +27 from §6.2 preflight). The converter command needs the `-t .`
-top-level-dir flag to keep relative imports inside `converter/__init__.py`
-modules resolvable.
+**Test totals.** 363 tests green (up from 260): 240 converter + 123 wrapper.
+The converter command needs the `-t .` top-level-dir flag to keep relative
+imports inside `converter/__init__.py` modules resolvable.
+Use `python -m pytest converter/ wrapper/` as the one-shot command.
 
 **Real-world validation — 2026-05-20 smoke test (Track 1) ✅**
 
@@ -68,10 +67,20 @@ targets the `apps/web` layer only, which is correct for MVP scope.
 
 ## What's Next
 
-**Track 2 — MVP §4.x compliance items** is now active.
-Plan at `plans/mvp-section-4-compliance.md`.
+**Track 2 — MVP §4.x compliance items — COMPLETE** (`plans/mvp-section-4-compliance.md`).
 
-Remaining open tracks after Track 2:
+All five compliance scanners shipped across five commits on 2026-05-20:
+- `88ea21e` — §4.3 ATT/IDFA scanner (22 tests)
+- `3ecba52` — §4.8 SIWA parity scanner (extends entitlement scanner)
+- `3ad7064` — §4.5 Usage string completeness auditor (18 tests)
+- `980005c` — §4.9 ATS configuration scanner (27 tests)
+- `8c0623e` — §4.2 Minimum functionality heuristic (20 tests)
+
+**§4.6 Encryption export audit** is the one stretch item not yet shipped
+(crypto import patterns → Layer-B note; low-risk, no rejection risk on its own).
+
+**Remaining open tracks:**
+- **§4.6** (stretch) — add crypto-import patterns to `api_scanner.py`.
 - **Ship / publish** — `v0.1.0` tag, PyPI, GitHub Release.
 - **Phase 2 kickoff** — Kotlin → Swift converter expansion (deferred per MVP scope).
 
@@ -89,8 +98,20 @@ Remaining open tracks after Track 2:
 - `schemas/report.schema.json` — Step 7.1 (three-layer report schema; nullable-type validator).
 - `converter/xcode_project/emitter.py` + `converter/xcode_project/templates/` — Step 8.3 (XcodeGen spec emitter + 6 templates incl. 1024×1024 PNG).
 - `wrapper/compatibility.py` + `wrapper/compliance_step.py` + `wrapper/xcode_step.py` — wrapper-side glue.
-- `wrapper/preflight.py` — MVP §6.2 pre-flight scanner; `run_preflight()` + `PreflightResult` + `format_preflight_report()`.
+- `wrapper/preflight.py` — MVP §6.2 pre-flight scanner; `run_preflight()` + `PreflightResult` + `format_preflight_report()`. Now includes ATT scan.
 - `wrapper/__main__.py` — `convert`, `convert-from-github`, `preflight` subcommands.
+
+### Track 2 — MVP §4.x Compliance (2026-05-20, complete)
+
+- `converter/compliance/att_scanner.py` — §4.3 ATT/IDFA scanner; 19 patterns (direct + transitive analytics SDKs); Layer-A blocker.
+- `converter/compliance/usage_string_auditor.py` — §4.5 usage string audit; reads generated `Info.plist`; flags empty/placeholder `NS*UsageDescription` as Layer-A.
+- `converter/compliance/ats_scanner.py` — §4.9 ATS scanner; detects hardcoded `http://` (non-localhost) and `allowsArbitraryLoads: true`; Layer-B warning.
+- `converter/compliance/min_functionality_checker.py` — §4.2 min functionality heuristic; fires when zero Capacitor plugins + zero usage keys + ≤3 routes; Layer-B warning.
+- `config/apple-required-reason-apis.yaml` — extended with ATT patterns.
+- `config/apple-entitlements.yaml` — extended with SIWA `siwa_trigger` field + 19 third-party SSO trigger patterns (Google, Facebook, Twitter, GitHub, Auth0, Passport, Capacitor Google Auth).
+- `converter/compliance/entitlement_scanner.py` — §4.8 SIWA parity: new `siwa_trigger` field, `_apply_siwa_parity()` logic, updated `to_findings()` for trigger message.
+- `wrapper/compliance_step.py` — orchestrates all five scanners; `ComplianceResult` carries `att_findings`, `ats_findings`, `min_func_finding`.
+- `wrapper/xcode_step.py` — runs usage string audit after emit; findings → Layer-A blockers.
 - `.github/workflows/test.yml` — Linux + macOS CI; macOS gated to `main` push and `macos-ci` label.
 
 ### Phase E — docs expansion (2026-05-04, BUILD-16…30, complete)
