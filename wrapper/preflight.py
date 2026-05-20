@@ -26,11 +26,14 @@ from typing import TYPE_CHECKING
 
 from converter.compliance import (
     APIFinding,
+    ATTFinding,
     EntitlementFinding,
     ScannerError,
     scan_all,
+    scan_all_att,
     scan_all_entitlements,
     to_findings,
+    to_att_findings,
     entitlement_to_findings,
 )
 from converter.report import Finding
@@ -55,6 +58,7 @@ class PreflightResult:
     warnings: list[Finding] = field(default_factory=list)
     api_findings: list[APIFinding] = field(default_factory=list)
     ent_findings: list[EntitlementFinding] = field(default_factory=list)
+    att_findings: list[ATTFinding] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -87,6 +91,7 @@ def run_preflight(source_dir: Path) -> PreflightResult:
 
     api_findings: list[APIFinding] = []
     ent_findings: list[EntitlementFinding] = []
+    att_findings: list[ATTFinding] = []
     errors: list[str] = []
 
     try:
@@ -98,6 +103,11 @@ def run_preflight(source_dir: Path) -> PreflightResult:
         ent_findings = scan_all_entitlements(source_dir)
     except ScannerError as exc:
         errors.append(f"entitlement scanner: {exc}")
+
+    try:
+        att_findings = scan_all_att(source_dir)
+    except ScannerError as exc:
+        errors.append(f"ATT scanner: {exc}")
 
     # Convert raw findings to report Finding objects and route by severity.
     blockers: list[Finding] = []
@@ -112,11 +122,15 @@ def run_preflight(source_dir: Path) -> PreflightResult:
         else:
             warnings.append(f)
 
+    for f in to_att_findings(att_findings, source_root=source_dir):
+        blockers.append(f)
+
     return PreflightResult(
         blockers=blockers,
         warnings=warnings,
         api_findings=api_findings,
         ent_findings=ent_findings,
+        att_findings=att_findings,
         errors=errors,
     )
 
@@ -152,6 +166,25 @@ def format_preflight_report(result: PreflightResult, source_dir: Path, *, brief:
                     seen.add(key)
                     short = f.category.removeprefix("NSPrivacyAccessedAPICategory")
                     lines.append(f"  • {short} — requires PrivacyInfo.xcprivacy reason code")
+        lines.append("")
+
+    # ATT / IDFA findings
+    n_att = len(result.att_findings)
+    if n_att:
+        lines.append(f"ATT/IDFA detected ({n_att} finding{'s' if n_att != 1 else ''}):")
+        if not brief:
+            direct = [f for f in result.att_findings if f.reason_code == "ATT.1"]
+            transitive = [f for f in result.att_findings if f.reason_code == "ATT.2"]
+            seen_att: set[str] = set()
+            for f in direct:
+                if f.pattern not in seen_att:
+                    seen_att.add(f.pattern)
+                    lines.append(f"  ✗ {f.pattern} — direct ATT/IDFA call (Guideline 5.1.2)")
+            sdk_seen: set[str] = set()
+            for f in transitive:
+                if f.pattern not in sdk_seen:
+                    sdk_seen.add(f.pattern)
+                    lines.append(f"  ✗ {f.pattern} — reads IDFA transitively (NSUserTrackingUsageDescription required)")
         lines.append("")
 
     # Entitlement findings
@@ -197,7 +230,13 @@ def format_preflight_report(result: PreflightResult, source_dir: Path, *, brief:
             lines.append("     (see: https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api)")
             lines.append("  2. Provision entitlements that require a Developer Account")
             lines.append("     (see: https://developer.apple.com/account/resources/)")
-            lines.append("  3. Re-run: python -m wrapper preflight <path>")
+            if result.att_findings:
+                lines.append("  3. Add NSUserTrackingUsageDescription to Info.plist and integrate")
+                lines.append("     ATTrackingManager.requestTrackingAuthorization (Guideline 5.1.2)")
+                lines.append("     (see: https://developer.apple.com/documentation/apptrackingtransparency)")
+                lines.append("  4. Re-run: python -m wrapper preflight <path>")
+            else:
+                lines.append("  3. Re-run: python -m wrapper preflight <path>")
     else:
         lines.append("Verdict: CLEAR")
         if n_warnings:

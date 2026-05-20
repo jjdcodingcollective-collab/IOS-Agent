@@ -1,7 +1,7 @@
 # Apple Required-Reason API Catalogue
 #
 # Source of truth (Apple): https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype
-# Captured on: 2026-05-05
+# Captured on: 2026-05-20 (ATT/IDFA section added)
 # Apple categories declared at: iOS 17.0+, iPadOS 17.0+, macOS 14.0+, tvOS 17.0+, visionOS 1.0+, watchOS 10.0+
 #
 # This file backs:
@@ -260,3 +260,107 @@ categories:
         default_reason_code: 54BD.1
       # No JS-side patterns: WKWebView web apps cannot meaningfully access
       # UITextInputMode without a custom Capacitor plugin we don't ship.
+
+  # ---------------------------------------------------------------------------
+  # ATT / IDFA — App Tracking Transparency (Guideline 5.1.2)
+  #
+  # Apple rule: any app that reads the IDFA or calls ATTrackingManager MUST
+  # show the ATT prompt (requestTrackingAuthorization) and declare
+  # NSUserTrackingUsageDescription in Info.plist. Submitting without these is
+  # an automatic rejection. Additionally, many analytics SDKs (Firebase
+  # Analytics, Facebook SDK, Amplitude, Mixpanel) access the IDFA
+  # transitively — the developer may not be aware they're triggering ATT.
+  #
+  # This section is NOT part of the NSPrivacyAccessedAPIType catalogue (Apple
+  # tracks ATT via NSUserTrackingUsageDescription, not a privacy manifest
+  # entry). We model it here so the att_scanner can share the load_rules
+  # infrastructure. The att_scanner emits Layer-A blockers into the report
+  # via a dedicated category prefix (`compliance.att.*`), not into
+  # PrivacyInfo.xcprivacy.
+  # ---------------------------------------------------------------------------
+  - id: ATTUsageDescription
+    label: App Tracking Transparency
+    native_apis:
+      - ATTrackingManager.requestTrackingAuthorization
+      - ASIdentifierManager.advertisingIdentifier
+    reason_codes:
+      - code: ATT.1
+        summary: >-
+          App reads IDFA or calls ATT prompt directly.
+        default_for: app
+      - code: ATT.2
+        summary: >-
+          App includes analytics SDK that reads IDFA transitively (Firebase
+          Analytics, Facebook SDK, Amplitude, Mixpanel, Adjust, AppsFlyer,
+          Branch, Kochava, Singular).
+        default_for: null
+    patterns:
+      # Direct ATT / IDFA usage
+      - pattern_type: js_api
+        pattern: 'requestTrackingAuthorization'
+        default_reason_code: ATT.1
+        notes: Direct ATT prompt call — highest confidence.
+      - pattern_type: js_api
+        pattern: 'ATTrackingManager'
+        default_reason_code: ATT.1
+      - pattern_type: js_api
+        pattern: 'advertisingIdentifier'
+        default_reason_code: ATT.1
+      - pattern_type: js_api
+        pattern: 'isAdvertisingTrackingEnabled'
+        default_reason_code: ATT.1
+      # Capacitor ATT plugin
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor-community/app-tracking-transparency'
+        default_reason_code: ATT.1
+      - pattern_type: ts_import
+        pattern: '@capacitor-community/app-tracking-transparency'
+        default_reason_code: ATT.1
+      # Firebase Analytics (reads IDFA transitively)
+      - pattern_type: ts_import
+        pattern: '@react-native-firebase/analytics'
+        default_reason_code: ATT.2
+        notes: Firebase Analytics imports IDFA transitively via GoogleAppMeasurement.
+      - pattern_type: ts_import
+        pattern: 'firebase/analytics'
+        default_reason_code: ATT.2
+      - pattern_type: ts_import
+        pattern: '@firebase/analytics'
+        default_reason_code: ATT.2
+      - pattern_type: capacitor_plugin
+        pattern: '@capacitor-firebase/analytics'
+        default_reason_code: ATT.2
+      # Facebook SDK
+      - pattern_type: ts_import
+        pattern: 'react-native-fbsdk-next'
+        default_reason_code: ATT.2
+        notes: Facebook SDK reads IDFA unless FBSDK_SKIP_AD_NETWORK_ACTIVITY_LOGGING is set.
+      - pattern_type: ts_import
+        pattern: '@react-native-fbsdk/core'
+        default_reason_code: ATT.2
+      - pattern_type: js_api
+        pattern: 'AppEventsLogger'
+        default_reason_code: ATT.2
+      # Amplitude
+      - pattern_type: ts_import
+        pattern: '@amplitude/analytics-browser'
+        default_reason_code: ATT.2
+        notes: Amplitude SDK may read IDFA on iOS depending on configuration.
+      - pattern_type: ts_import
+        pattern: 'amplitude-js'
+        default_reason_code: ATT.2
+      # Mixpanel
+      - pattern_type: ts_import
+        pattern: 'mixpanel-browser'
+        default_reason_code: ATT.2
+      - pattern_type: ts_import
+        pattern: 'mixpanel-react-native'
+        default_reason_code: ATT.2
+      # Adjust
+      - pattern_type: ts_import
+        pattern: '@adjustcom/adjust-react-native'
+        default_reason_code: ATT.2
+      # AppsFlyer
+      - pattern_type: ts_import
+        pattern: 'react-native-appsflyer'
+        default_reason_code: ATT.2

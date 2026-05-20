@@ -32,6 +32,17 @@ from .privacy_manifest import (
     generate_manifest,
     validate_manifest,
 )
+from .att_scanner import (
+    ATTFinding,
+    ATT_DOC_URL,
+    ATT_USAGE_STRING_KEY,
+    load_att_rules,
+    scan_att_source,
+    scan_att_plugins,
+    scan_all_att,
+    to_att_findings,
+)
+from .att_scanner import PRODUCER as ATT_PRODUCER
 
 __all__ = [
     "APIFinding",
@@ -51,4 +62,13 @@ __all__ = [
     "ManifestError",
     "generate_manifest",
     "validate_manifest",
+    "ATTFinding",
+    "ATT_DOC_URL",
+    "ATT_USAGE_STRING_KEY",
+    "ATT_PRODUCER",
+    "load_att_rules",
+    "scan_att_source",
+    "scan_att_plugins",
+    "scan_all_att",
+    "to_att_findings",
 ]

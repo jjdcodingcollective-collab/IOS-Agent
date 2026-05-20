@@ -18,11 +18,14 @@ from typing import TYPE_CHECKING
 
 from converter.compliance import (
     APIFinding,
+    ATTFinding,
     ManifestError,
     ScannerError,
     generate_manifest,
     scan_all,
+    scan_all_att,
     to_findings,
+    to_att_findings,
 )
 
 if TYPE_CHECKING:
@@ -42,7 +45,12 @@ MANIFEST_FILENAME = "PrivacyInfo.xcprivacy"
 class ComplianceResult:
     manifest_path: Path | None
     findings: list[APIFinding]
+    att_findings: list[ATTFinding] = None  # type: ignore[assignment]
     error: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.att_findings is None:
+            object.__setattr__(self, "att_findings", [])
 
     @property
     def succeeded(self) -> bool:
@@ -75,7 +83,14 @@ def run_compliance_step(
     except ScannerError as exc:
         msg = f"compliance scan failed: {exc}"
         print(f"warning: {msg}")
-        return ComplianceResult(manifest_path=None, findings=[], error=msg)
+        return ComplianceResult(manifest_path=None, findings=[], att_findings=[], error=msg)
+
+    try:
+        att_findings = scan_all_att(source_dir)
+    except ScannerError as exc:
+        msg = f"ATT scan failed: {exc}"
+        print(f"warning: {msg}")
+        att_findings = []
 
     manifest_path = output_dir / MANIFEST_FILENAME
     try:
@@ -87,18 +102,21 @@ def run_compliance_step(
     except ManifestError as exc:
         msg = f"privacy manifest generation failed: {exc}"
         print(f"warning: {msg}")
-        return ComplianceResult(manifest_path=None, findings=findings, error=msg)
+        return ComplianceResult(manifest_path=None, findings=findings, att_findings=att_findings, error=msg)
 
     if report_builder is not None:
         for f in to_findings(findings, source_root=source_dir):
             report_builder.add_blocker(f)
+        for f in to_att_findings(att_findings, source_root=source_dir):
+            report_builder.add_blocker(f)
 
-    _print_summary(findings, manifest_path, overrides_path, brief=brief)
-    return ComplianceResult(manifest_path=manifest_path, findings=findings)
+    _print_summary(findings, att_findings, manifest_path, overrides_path, brief=brief)
+    return ComplianceResult(manifest_path=manifest_path, findings=findings, att_findings=att_findings)
 
 
 def _print_summary(
     findings: list[APIFinding],
+    att_findings: list[ATTFinding],
     manifest_path: Path,
     overrides_path: Path | None,
     *,
@@ -118,9 +136,18 @@ def _print_summary(
         f"{overrides_note} → {manifest_path.name}"
     )
 
-    if brief or not findings:
-        return
+    if not brief and findings:
+        for category, count in sorted(counts.items()):
+            short = category.removeprefix("NSPrivacyAccessedAPICategory")
+            print(f"  - {short}: {count}")
 
-    for category, count in sorted(counts.items()):
-        short = category.removeprefix("NSPrivacyAccessedAPICategory")
-        print(f"  - {short}: {count}")
+    if att_findings:
+        n_att = len(att_findings)
+        print(f"ATT/IDFA: {n_att} finding(s) — NSUserTrackingUsageDescription required")
+        if not brief:
+            direct = sum(1 for f in att_findings if f.reason_code == "ATT.1")
+            transitive = sum(1 for f in att_findings if f.reason_code == "ATT.2")
+            if direct:
+                print(f"  - direct ATT/IDFA calls: {direct}")
+            if transitive:
+                print(f"  - transitive via analytics SDK: {transitive}")

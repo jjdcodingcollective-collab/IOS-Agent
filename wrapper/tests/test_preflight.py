@@ -110,12 +110,13 @@ class TestPreflightResult(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestRunPreflight(unittest.TestCase):
-    """run_preflight is tested by mocking scan_all and scan_all_entitlements
+    """run_preflight is tested by mocking the three scanner calls
     so no real file I/O occurs beyond the Path.resolve() call."""
 
+    @patch("wrapper.preflight.scan_all_att", return_value=[])
     @patch("wrapper.preflight.scan_all_entitlements", return_value=[])
     @patch("wrapper.preflight.scan_all", return_value=[])
-    def test_clean_source_returns_no_findings(self, mock_api, mock_ent):
+    def test_clean_source_returns_no_findings(self, mock_api, mock_ent, mock_att):
         r = run_preflight(Path("/some/source"))
         self.assertEqual(r.exit_code, 0)
         self.assertEqual(r.blockers, [])
@@ -123,10 +124,12 @@ class TestRunPreflight(unittest.TestCase):
         self.assertEqual(r.errors, [])
         mock_api.assert_called_once()
         mock_ent.assert_called_once()
+        mock_att.assert_called_once()
 
+    @patch("wrapper.preflight.scan_all_att", return_value=[])
     @patch("wrapper.preflight.scan_all_entitlements", return_value=[])
     @patch("wrapper.preflight.scan_all")
-    def test_api_findings_become_blockers(self, mock_api, mock_ent):
+    def test_api_findings_become_blockers(self, mock_api, mock_ent, mock_att):
         af = _api_finding()
         mock_api.return_value = [af]
         r = run_preflight(Path("/some/source"))
@@ -134,18 +137,20 @@ class TestRunPreflight(unittest.TestCase):
         self.assertEqual(len(r.api_findings), 1)
         self.assertGreater(len(r.blockers), 0)
 
+    @patch("wrapper.preflight.scan_all_att", return_value=[])
     @patch("wrapper.preflight.scan_all_entitlements")
     @patch("wrapper.preflight.scan_all", return_value=[])
-    def test_requires_dev_account_entitlement_is_blocker(self, mock_api, mock_ent):
+    def test_requires_dev_account_entitlement_is_blocker(self, mock_api, mock_ent, mock_att):
         ef = _ent_finding(requires_dev=True)
         mock_ent.return_value = [ef]
         r = run_preflight(Path("/some/source"))
         self.assertEqual(r.exit_code, 1)
         self.assertTrue(r.has_blockers)
 
+    @patch("wrapper.preflight.scan_all_att", return_value=[])
     @patch("wrapper.preflight.scan_all_entitlements")
     @patch("wrapper.preflight.scan_all", return_value=[])
-    def test_permission_only_entitlement_is_warning(self, mock_api, mock_ent):
+    def test_permission_only_entitlement_is_warning(self, mock_api, mock_ent, mock_att):
         ef = _ent_finding(requires_dev=False)
         mock_ent.return_value = [ef]
         r = run_preflight(Path("/some/source"))
@@ -153,18 +158,21 @@ class TestRunPreflight(unittest.TestCase):
         self.assertFalse(r.has_blockers)
         self.assertGreater(len(r.warnings), 0)
 
+    @patch("wrapper.preflight.scan_all_att", side_effect=ScannerError("att failed"))
     @patch("wrapper.preflight.scan_all_entitlements", side_effect=ScannerError("ent failed"))
     @patch("wrapper.preflight.scan_all", side_effect=ScannerError("api failed"))
-    def test_scanner_errors_captured_not_raised(self, mock_api, mock_ent):
+    def test_scanner_errors_captured_not_raised(self, mock_api, mock_ent, mock_att):
         r = run_preflight(Path("/some/source"))
         self.assertEqual(r.exit_code, 2)
-        self.assertEqual(len(r.errors), 2)
+        self.assertEqual(len(r.errors), 3)
         self.assertIn("privacy scanner", r.errors[0])
         self.assertIn("entitlement scanner", r.errors[1])
+        self.assertIn("ATT scanner", r.errors[2])
 
+    @patch("wrapper.preflight.scan_all_att", return_value=[])
     @patch("wrapper.preflight.scan_all_entitlements", return_value=[])
     @patch("wrapper.preflight.scan_all", side_effect=ScannerError("api failed"))
-    def test_partial_scan_still_returns_ent_findings(self, mock_api, mock_ent):
+    def test_partial_scan_still_returns_ent_findings(self, mock_api, mock_ent, mock_att):
         """If the API scanner fails, we still run the entitlement scanner."""
         ef = _ent_finding(requires_dev=False)
         mock_ent.return_value = [ef]
@@ -174,9 +182,10 @@ class TestRunPreflight(unittest.TestCase):
         # but ent scanner ran and produced a warning
         self.assertEqual(len(r.ent_findings), 1)
 
+    @patch("wrapper.preflight.scan_all_att", return_value=[])
     @patch("wrapper.preflight.scan_all_entitlements", return_value=[])
     @patch("wrapper.preflight.scan_all", return_value=[])
-    def test_resolves_source_path(self, mock_api, mock_ent):
+    def test_resolves_source_path(self, mock_api, mock_ent, mock_att):
         """run_preflight calls resolve() so scanners receive an absolute path."""
         r = run_preflight(Path("relative/path"))
         called_path = mock_api.call_args[0][0]
