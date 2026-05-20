@@ -24,6 +24,12 @@ from converter.compliance import (
     entitlement_to_findings,
     scan_all_entitlements,
 )
+from converter.compliance.usage_string_auditor import (
+    AuditorError,
+    UsageStringFinding,
+    audit_info_plist,
+    to_usage_findings,
+)
 from converter.xcode_project import (
     EmitResult,
     EmitterError,
@@ -111,6 +117,14 @@ def run_xcode_step(
             error=msg,
         )
 
+    # Audit generated Info.plist for placeholder usage strings.
+    info_plist_path = output_dir / "App" / "Info.plist"
+    usage_audit_findings: list[UsageStringFinding] = []
+    try:
+        usage_audit_findings = audit_info_plist(info_plist_path)
+    except AuditorError as exc:
+        print(f"warning: usage string audit failed: {exc}")
+
     if report_builder is not None:
         for f in entitlement_to_findings(ent_findings, source_root=source_dir):
             if f.severity == "blocker":
@@ -122,9 +136,11 @@ def run_xcode_step(
                 report_builder.add_blocker(f)
             else:
                 report_builder.add_manual_review(f)
+        for f in to_usage_findings(usage_audit_findings):
+            report_builder.add_blocker(f)
 
     project_yml = output_dir / "project.yml"
-    _print_summary(ent_findings, emit_result, project_yml, brief=brief)
+    _print_summary(ent_findings, emit_result, usage_audit_findings, project_yml, brief=brief)
     return XcodeStepResult(
         project_yml=project_yml,
         entitlement_findings=ent_findings,
@@ -135,6 +151,7 @@ def run_xcode_step(
 def _print_summary(
     ent_findings: list[EntitlementFinding],
     emit_result: EmitResult,
+    usage_audit_findings: list[UsageStringFinding],
     project_yml: Path,
     *,
     brief: bool,
@@ -148,6 +165,10 @@ def _print_summary(
         f"{n_placeholders} placeholder finding(s), "
         f"{n_files} file(s) → {project_yml.name}"
     )
+
+    if usage_audit_findings:
+        n_usage = len(usage_audit_findings)
+        print(f"usage strings: {n_usage} placeholder(s) require real descriptions before submission")
 
     if brief or not ent_findings:
         return

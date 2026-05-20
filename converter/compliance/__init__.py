@@ -43,6 +43,13 @@ from .att_scanner import (
     to_att_findings,
 )
 from .att_scanner import PRODUCER as ATT_PRODUCER
+from .usage_string_auditor import (
+    AuditorError,
+    UsageStringFinding,
+    audit_info_plist,
+    to_usage_findings,
+)
+from .usage_string_auditor import PRODUCER as USAGE_AUDITOR_PRODUCER
 
 __all__ = [
     "APIFinding",
@@ -71,4 +78,9 @@ __all__ = [
     "scan_att_plugins",
     "scan_all_att",
     "to_att_findings",
+    "AuditorError",
+    "UsageStringFinding",
+    "USAGE_AUDITOR_PRODUCER",
+    "audit_info_plist",
+    "to_usage_findings",
 ]
