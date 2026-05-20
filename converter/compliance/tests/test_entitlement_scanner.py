@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from converter.compliance.entitlement_scanner import (
     EntitlementFinding,
     ScannerError,
+    _apply_siwa_parity,
     load_rules,
     scan_all,
     scan_capacitor_plugins,
@@ -230,6 +231,162 @@ class TestToFindings(unittest.TestCase):
         self.assertEqual(len(out), 1)
         # First finding wins for location.
         self.assertEqual(out[0].file, "(plugins)")
+
+
+def _siwa_finding(*, siwa_trigger: bool, pattern: str = "test-pattern") -> EntitlementFinding:
+    return EntitlementFinding(
+        entitlement_key="com.apple.developer.applesignin",
+        capability="SignInWithApple",
+        label="Sign in with Apple",
+        pattern=pattern,
+        pattern_type="ts_import",
+        file=Path("/tmp/src/auth.ts"),
+        line=1,
+        snippet=f"import {pattern}",
+        requires_developer_account=True,
+        usage_strings=tuple(),
+        siwa_trigger=siwa_trigger,
+    )
+
+
+class TestSiwaParityLogic(unittest.TestCase):
+    """_apply_siwa_parity() rewrites findings correctly for all three states."""
+
+    def test_no_siwa_findings_unchanged(self) -> None:
+        other = EntitlementFinding(
+            entitlement_key="aps-environment",
+            capability="PushNotifications",
+            label="Push Notifications",
+            pattern="PushNotifications.register",
+            pattern_type="js_api",
+            file=Path("/tmp/src/app.ts"),
+            line=5,
+            snippet="PushNotifications.register()",
+            requires_developer_account=True,
+            usage_strings=tuple(),
+        )
+        result = _apply_siwa_parity([other])
+        self.assertEqual(result, [other])
+
+    def test_trigger_only_findings_kept(self) -> None:
+        trigger = _siwa_finding(siwa_trigger=True, pattern="@react-oauth/google")
+        result = _apply_siwa_parity([trigger])
+        self.assertEqual(len(result), 1)
+        self.assertTrue(result[0].siwa_trigger)
+
+    def test_direct_siwa_drops_trigger_findings(self) -> None:
+        trigger = _siwa_finding(siwa_trigger=True, pattern="@react-oauth/google")
+        direct = _siwa_finding(siwa_trigger=False, pattern="@capacitor-community/apple-sign-in")
+        result = _apply_siwa_parity([trigger, direct])
+        # Only the direct SIWA finding survives.
+        self.assertEqual(len(result), 1)
+        self.assertFalse(result[0].siwa_trigger)
+
+    def test_multiple_triggers_all_kept_when_no_direct(self) -> None:
+        t1 = _siwa_finding(siwa_trigger=True, pattern="@react-oauth/google")
+        t2 = _siwa_finding(siwa_trigger=True, pattern="react-native-fbsdk-next")
+        result = _apply_siwa_parity([t1, t2])
+        self.assertEqual(len(result), 2)
+
+    def test_non_siwa_findings_preserved_alongside_direct(self) -> None:
+        direct = _siwa_finding(siwa_trigger=False)
+        push = EntitlementFinding(
+            entitlement_key="aps-environment",
+            capability="PushNotifications",
+            label="Push Notifications",
+            pattern="PushNotifications.register",
+            pattern_type="js_api",
+            file=Path("/tmp/src/app.ts"),
+            line=5,
+            snippet="PushNotifications.register()",
+            requires_developer_account=True,
+            usage_strings=tuple(),
+        )
+        result = _apply_siwa_parity([direct, push])
+        caps = {f.capability for f in result}
+        self.assertIn("SignInWithApple", caps)
+        self.assertIn("PushNotifications", caps)
+
+
+class TestSiwaParityToFindings(unittest.TestCase):
+    """to_findings() emits the correct Guideline 4.8 message for trigger findings."""
+
+    def test_trigger_finding_mentions_guideline_4_8(self) -> None:
+        trigger = _siwa_finding(siwa_trigger=True, pattern="@react-oauth/google")
+        out = to_findings([trigger])
+        self.assertEqual(len(out), 1)
+        self.assertIn("4.8", out[0].reason)
+        self.assertIn("Sign in with Apple", out[0].reason)
+
+    def test_trigger_finding_recommended_fix_has_steps(self) -> None:
+        trigger = _siwa_finding(siwa_trigger=True, pattern="@react-oauth/google")
+        out = to_findings([trigger])
+        self.assertIn("SignInWithApple", out[0].recommended_fix)
+
+    def test_direct_siwa_finding_has_standard_message(self) -> None:
+        direct = _siwa_finding(siwa_trigger=False, pattern="@capacitor-community/apple-sign-in")
+        out = to_findings([direct])
+        self.assertEqual(len(out), 1)
+        self.assertNotIn("4.8", out[0].reason)
+        self.assertIn("Apple Developer Account", out[0].reason)
+
+    def test_trigger_is_blocker(self) -> None:
+        trigger = _siwa_finding(siwa_trigger=True, pattern="@react-oauth/google")
+        out = to_findings([trigger])
+        self.assertEqual(out[0].severity, "blocker")
+
+
+class TestSiwaDetectionEndToEnd(unittest.TestCase):
+    """Integration: scan_all() detects SSO patterns and applies parity correctly."""
+
+    def _write(self, root: Path, rel: str, body: str) -> None:
+        p = root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(textwrap.dedent(body), encoding="utf-8")
+
+    def test_google_oauth_import_triggers_siwa_requirement(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(root, "src/auth.ts", """\
+                import { GoogleLogin } from '@react-oauth/google';
+            """)
+            findings = scan_all(root)
+        siwa = [f for f in findings if f.capability == "SignInWithApple"]
+        self.assertTrue(len(siwa) > 0)
+        self.assertTrue(all(f.siwa_trigger for f in siwa))
+
+    def test_firebase_sign_in_with_popup_triggers_siwa(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(root, "src/auth.ts", """\
+                import { signInWithPopup } from 'firebase/auth';
+            """)
+            findings = scan_all(root)
+        siwa = [f for f in findings if f.capability == "SignInWithApple"]
+        self.assertTrue(len(siwa) > 0)
+
+    def test_direct_siwa_with_google_drops_trigger(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(root, "src/auth.ts", """\
+                import { GoogleLogin } from '@react-oauth/google';
+                import { SignInWithApple } from '@capacitor-community/apple-sign-in';
+            """)
+            findings = scan_all(root)
+        siwa = [f for f in findings if f.capability == "SignInWithApple"]
+        # Direct SIWA present — no trigger findings should remain.
+        self.assertTrue(all(not f.siwa_trigger for f in siwa))
+
+    def test_clean_source_no_siwa_findings(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write(root, "src/app.ts", """\
+                import React from 'react';
+                export default function App() { return null; }
+            """)
+            findings = scan_all(root)
+        siwa = [f for f in findings if f.capability == "SignInWithApple"]
+        self.assertEqual(siwa, [])
 
 
 if __name__ == "__main__":

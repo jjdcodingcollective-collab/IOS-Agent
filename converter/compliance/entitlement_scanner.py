@@ -53,6 +53,10 @@ class EntitlementFinding:
     developer must enable in their Apple Developer Account before the
     entitlement value will sign — these become Layer-A blockers in the
     report.
+
+    `siwa_trigger` is True when the matched pattern is a third-party SSO
+    that triggers the Guideline 4.8 SIWA parity requirement, rather than
+    being a direct SIWA import that satisfies it.
     """
 
     entitlement_key: str
@@ -65,6 +69,7 @@ class EntitlementFinding:
     snippet: str
     requires_developer_account: bool
     usage_strings: tuple[str, ...] = field(default_factory=tuple)
+    siwa_trigger: bool = False
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,7 @@ class _EntitlementRule:
     pattern_type: str
     pattern: str
     regex: re.Pattern[str] | None  # None for capacitor_plugin
+    siwa_trigger: bool = False
 
 
 def load_rules(rules_path: Path | None = None) -> list[_EntitlementRule]:
@@ -122,6 +128,7 @@ def load_rules(rules_path: Path | None = None) -> list[_EntitlementRule]:
             pval = entry.get("pattern")
             if not (isinstance(ptype, str) and isinstance(pval, str)):
                 continue
+            siwa_trigger = bool(entry.get("siwa_trigger", False))
             rules.append(
                 _EntitlementRule(
                     key=key,
@@ -132,6 +139,7 @@ def load_rules(rules_path: Path | None = None) -> list[_EntitlementRule]:
                     pattern_type=ptype,
                     pattern=pval,
                     regex=_compile_regex(ptype, pval),
+                    siwa_trigger=siwa_trigger,
                 )
             )
     return rules
@@ -185,6 +193,7 @@ def scan_source(
                             snippet=line.rstrip("\n").strip(),
                             requires_developer_account=rule.requires_developer_account,
                             usage_strings=rule.usage_strings,
+                            siwa_trigger=rule.siwa_trigger,
                         )
                     )
     return findings
@@ -246,6 +255,7 @@ def scan_capacitor_plugins(
                 snippet=f"declared plugin: {plugin_name}",
                 requires_developer_account=rule.requires_developer_account,
                 usage_strings=rule.usage_strings,
+                siwa_trigger=rule.siwa_trigger,
             )
         )
     return findings
@@ -256,11 +266,42 @@ def scan_all(
     *,
     rules_path: Path | None = None,
 ) -> list[EntitlementFinding]:
-    """Run both passes and return the combined finding list, deduped."""
+    """Run both passes, dedup, then apply SIWA parity rewriting."""
     rules = load_rules(rules_path)
     src = scan_source(root, rules=rules)
     plugins = scan_capacitor_plugins(root, rules=rules)
-    return _dedupe(src + plugins)
+    return _apply_siwa_parity(_dedupe(src + plugins))
+
+
+def _apply_siwa_parity(
+    findings: list[EntitlementFinding],
+) -> list[EntitlementFinding]:
+    """Rewrite SIWA findings to reflect the Guideline 4.8 parity state.
+
+    Three cases for the SignInWithApple capability:
+    1. No SIWA findings at all → nothing to do.
+    2. Only siwa_trigger=True findings (third-party SSO, no SIWA) →
+       keep all trigger findings but mark them as
+       siwa_trigger=True so to_findings() emits the correct "SIWA required"
+       message instead of the generic "enable capability" message.
+    3. siwa_trigger=False findings present (direct SIWA import) →
+       the requirement is satisfied; drop all trigger-only findings for
+       the SIWA capability so the report is clean.
+    """
+    siwa_cap = "SignInWithApple"
+    siwa_findings = [f for f in findings if f.capability == siwa_cap]
+    if not siwa_findings:
+        return findings
+
+    has_direct = any(not f.siwa_trigger for f in siwa_findings)
+    if has_direct:
+        # SIWA present — drop trigger-only findings, keep direct ones.
+        return [
+            f for f in findings
+            if not (f.capability == siwa_cap and f.siwa_trigger)
+        ]
+    # Only triggers, no direct SIWA — keep all (to_findings sees siwa_trigger=True).
+    return findings
 
 
 def _dedupe(findings: list[EntitlementFinding]) -> list[EntitlementFinding]:
@@ -354,7 +395,23 @@ def to_findings(
                 f"Source uses `{ef.pattern}`, which requires the {ef.label} capability"
             )
 
-        if ef.requires_developer_account:
+        if ef.requires_developer_account and ef.siwa_trigger:
+            severity = "blocker"
+            reason = (
+                f"{reason_lead}, which is a third-party login. Apple Guideline 4.8 "
+                f"requires Sign in with Apple parity: any app that offers a "
+                f"third-party login (Google, Facebook, etc.) must also offer "
+                f"Sign in with Apple as an equivalent option."
+            )
+            recommended_fix = (
+                "Add Sign in with Apple as a login option:\n"
+                "1. Enable the SignInWithApple capability in your Apple Developer "
+                "Account at https://developer.apple.com/account/resources/identifiers/\n"
+                "2. Add `@capacitor-community/apple-sign-in` (or an equivalent) "
+                "to your project.\n"
+                "3. Present the SIWA button alongside your existing login options."
+            )
+        elif ef.requires_developer_account:
             severity = "blocker"
             reason = (
                 f"{reason_lead}. The {ef.label} capability must be enabled in "

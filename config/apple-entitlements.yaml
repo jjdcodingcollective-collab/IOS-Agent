@@ -116,16 +116,92 @@ entitlements:
     capability: SignInWithApple
     requires_developer_account: true
     usage_strings: []
+    siwa_trigger: false
     notes: >-
       Apple Guideline 4.8 requires Sign in with Apple parity if the app uses
-      any third-party login (Google, Facebook, etc.). The wrapper does not
-      detect third-party SSO patterns yet; this entitlement is only flagged
-      when SIWA itself appears.
+      any third-party login (Google, Facebook, etc.). Patterns with
+      siwa_trigger: true flag third-party SSO that makes SIWA mandatory;
+      patterns without the flag (or siwa_trigger: false) are direct SIWA
+      imports that satisfy the requirement.
     patterns:
+      # --- Direct SIWA (satisfies Guideline 4.8) ---
       - pattern_type: capacitor_plugin
         pattern: '@capacitor-community/apple-sign-in'
+        siwa_trigger: false
       - pattern_type: ts_import
         pattern: '@capacitor-community/apple-sign-in'
+        siwa_trigger: false
+      - pattern_type: ts_import
+        pattern: '@invertase/react-native-apple-authentication'
+        siwa_trigger: false
+      # --- Third-party SSO (triggers Guideline 4.8 requirement) ---
+      # Google
+      - pattern_type: ts_import
+        pattern: '@react-oauth/google'
+        siwa_trigger: true
+        notes: Google OAuth via react-oauth — triggers SIWA parity requirement.
+      - pattern_type: ts_import
+        pattern: '@react-native-google-signin/google-signin'
+        siwa_trigger: true
+      - pattern_type: ts_import
+        pattern: '@codetrix-studio/capacitor-google-auth'
+        siwa_trigger: true
+      - pattern_type: capacitor_plugin
+        pattern: '@codetrix-studio/capacitor-google-auth'
+        siwa_trigger: true
+      - pattern_type: js_api
+        pattern: 'GoogleAuthProvider'
+        siwa_trigger: true
+        notes: Firebase Auth Google provider.
+      - pattern_type: js_api
+        pattern: 'signInWithGoogle'
+        siwa_trigger: true
+      # Facebook
+      - pattern_type: ts_import
+        pattern: 'react-native-fbsdk-next'
+        siwa_trigger: true
+        notes: Facebook Login SDK — triggers SIWA parity.
+      - pattern_type: ts_import
+        pattern: '@react-native-fbsdk/core'
+        siwa_trigger: true
+      - pattern_type: js_api
+        pattern: 'FacebookAuthProvider'
+        siwa_trigger: true
+        notes: Firebase Auth Facebook provider.
+      - pattern_type: js_api
+        pattern: 'LoginManager'
+        siwa_trigger: true
+        notes: Facebook LoginManager.login().
+      # Twitter / X
+      - pattern_type: js_api
+        pattern: 'TwitterAuthProvider'
+        siwa_trigger: true
+        notes: Firebase Auth Twitter provider.
+      # GitHub
+      - pattern_type: js_api
+        pattern: 'GithubAuthProvider'
+        siwa_trigger: true
+        notes: Firebase Auth GitHub provider.
+      # Generic OAuth / SSO patterns
+      - pattern_type: js_api
+        pattern: 'signInWithPopup'
+        siwa_trigger: true
+        notes: Firebase signInWithPopup — provider-agnostic; any OAuth provider triggers SIWA.
+      - pattern_type: js_api
+        pattern: 'signInWithRedirect'
+        siwa_trigger: true
+        notes: Firebase signInWithRedirect — same as signInWithPopup.
+      - pattern_type: ts_import
+        pattern: 'passport'
+        siwa_trigger: true
+        notes: Passport.js strategies that include social auth.
+      - pattern_type: ts_import
+        pattern: '@auth0/auth0-react'
+        siwa_trigger: true
+        notes: Auth0 React SDK — if social providers are enabled, SIWA parity required.
+      - pattern_type: ts_import
+        pattern: '@auth0/auth0-spa-js'
+        siwa_trigger: true
 
   # ---------------------------------------------------------------------------
   # Permission-prompted capabilities — no Apple-Developer-Account requirement,
