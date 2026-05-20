@@ -159,7 +159,12 @@ class TestReportIntegration(unittest.TestCase):
             src.mkdir()
             out.mkdir()
             (src / "src").mkdir()
-            (src / "src" / "app.ts").write_text("const x = 1;\n", encoding="utf-8")
+            # Include a Capacitor plugin import so the min-functionality
+            # heuristic does not fire (zero-plugin + zero-route = Layer B).
+            (src / "src" / "app.ts").write_text(
+                "import { App } from '@capacitor/app';\nconst x = 1;\n",
+                encoding="utf-8",
+            )
 
             _run(src, out)
 
@@ -172,7 +177,7 @@ class TestReportIntegration(unittest.TestCase):
                 "xcode.placeholder.launch-screen",
             ):
                 self.assertIn(expected, categories)
-            # No compliance findings for an empty TS file.
+            # No compliance findings for a clean TS file with one plugin import.
             self.assertFalse(any(c.startswith("compliance.") for c in categories))
             self.assertEqual(data["layer_b_manual_review"], [])
             self.assertEqual(data["layer_c_learnings"], [])

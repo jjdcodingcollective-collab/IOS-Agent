@@ -32,6 +32,11 @@ from converter.compliance.ats_scanner import (
     scan_all_ats,
     to_ats_findings,
 )
+from converter.compliance.min_functionality_checker import (
+    MinFuncFinding,
+    check_min_functionality,
+    to_min_func_findings,
+)
 
 if TYPE_CHECKING:
     from converter.report import ReportBuilder
@@ -52,6 +57,7 @@ class ComplianceResult:
     findings: list[APIFinding]
     att_findings: list[ATTFinding] = None  # type: ignore[assignment]
     ats_findings: list[ATSFinding] = None  # type: ignore[assignment]
+    min_func_finding: MinFuncFinding | None = None
     error: str | None = None
 
     def __post_init__(self) -> None:
@@ -119,6 +125,8 @@ def run_compliance_step(
         print(f"warning: {msg}")
         return ComplianceResult(manifest_path=None, findings=findings, att_findings=att_findings, ats_findings=ats_findings, error=msg)
 
+    min_func_finding = check_min_functionality(source_dir)
+
     if report_builder is not None:
         for f in to_findings(findings, source_root=source_dir):
             report_builder.add_blocker(f)
@@ -126,15 +134,18 @@ def run_compliance_step(
             report_builder.add_blocker(f)
         for f in to_ats_findings(ats_findings, source_root=source_dir):
             report_builder.add_manual_review(f)
+        for f in to_min_func_findings(min_func_finding):
+            report_builder.add_manual_review(f)
 
-    _print_summary(findings, att_findings, ats_findings, manifest_path, overrides_path, brief=brief)
-    return ComplianceResult(manifest_path=manifest_path, findings=findings, att_findings=att_findings, ats_findings=ats_findings)
+    _print_summary(findings, att_findings, ats_findings, min_func_finding, manifest_path, overrides_path, brief=brief)
+    return ComplianceResult(manifest_path=manifest_path, findings=findings, att_findings=att_findings, ats_findings=ats_findings, min_func_finding=min_func_finding)
 
 
 def _print_summary(
     findings: list[APIFinding],
     att_findings: list[ATTFinding],
     ats_findings: list[ATSFinding],
+    min_func_finding: MinFuncFinding | None,
     manifest_path: Path,
     overrides_path: Path | None,
     *,
@@ -179,3 +190,10 @@ def _print_summary(
                 print(f"  - hardcoded http:// URLs: {n_http}")
             if n_arb:
                 print(f"  - allowsArbitraryLoads: {n_arb}")
+
+    if min_func_finding is not None:
+        print(
+            f"min-functionality: static wrapper detected — "
+            f"{min_func_finding.route_count} route(s), 0 plugins, "
+            f"0 usage keys (Guideline 4.2, Layer B)"
+        )

@@ -58,6 +58,12 @@ from .ats_scanner import (
     to_ats_findings,
 )
 from .ats_scanner import PRODUCER as ATS_PRODUCER
+from .min_functionality_checker import (
+    MinFuncFinding,
+    check_min_functionality,
+    to_min_func_findings,
+)
+from .min_functionality_checker import PRODUCER as MIN_FUNC_PRODUCER
 
 __all__ = [
     "APIFinding",
@@ -97,4 +103,8 @@ __all__ = [
     "scan_ats_source",
     "scan_ats_configs",
     "to_ats_findings",
+    "MinFuncFinding",
+    "MIN_FUNC_PRODUCER",
+    "check_min_functionality",
+    "to_min_func_findings",
 ]
