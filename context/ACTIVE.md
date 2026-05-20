@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-06 (MVP §6.2 pre-flight scanner shipped; 260 tests green)
+Last curated: 2026-05-09 (review/verification session; state confirmed; 260 tests green)
 
 ## Current State
 
@@ -93,9 +93,25 @@ There is no auto-queued next phase; the user picks the next track.
 - `wrapper/__main__.py` — `convert`, `convert-from-github`, `preflight` subcommands.
 - `.github/workflows/test.yml` — Linux + macOS CI; macOS gated to `main` push and `macos-ci` label.
 
-### Wrapper roadmap (2026-05-04, complete)
+### Phase E — docs expansion (2026-05-04, BUILD-16…30, complete)
 
-- `plans/gap-analysis-and-build-guide.md` — capability matrix and roadmap (all 15 BUILD items marked complete).
+- `plans/reviews/2026-05-04-language-transposition.md` — in-repo canonical copy of the gap analysis that drove Phase E.
+- `docs/02-swift-fundamentals/swift-objc-interop.md` — BUILD-16 (ObjC interop, bridging headers, KVO).
+- `docs/02-swift-fundamentals/concurrency-and-sendable.md` — BUILD-17 (actors, `@MainActor`, `Sendable`).
+- `docs/02-swift-fundamentals/generics-and-protocols-deep.md` — BUILD-18 (`some` vs `any`, PATs, type erasure).
+- `docs/02-swift-fundamentals/arc-and-lifetimes.md` — BUILD-19 (ARC, retain cycles, capture lists, `Task` retention).
+- `docs/02-swift-fundamentals/from-kotlin.md`, `from-java.md`, `from-python.md` — BUILD-21 (Tier 1 source-language chapters).
+- `docs/03-architecture/persistence.md` — BUILD-22 (UserDefaults / Keychain / SwiftData / Core Data / CloudKit).
+- `docs/04-ui-development/uikit-guide.md` — BUILD-23 (view controllers, Auto Layout, diffable data sources, SwiftUI bridge).
+- `docs/02-swift-fundamentals/from-csharp.md`, `from-dart-flutter.md` — BUILD-24/25 (Xamarin/MAUI sunset, Flutter replatforming).
+- `docs/02-swift-fundamentals/combine-and-async-streams.md`, `codable-deep.md`, `swift-toolkit-for-web-devs.md` — BUILD-26 (deeper JS/TS companion chapters).
+- `docs/09-deployment/app-store-operations.md` — BUILD-29 (privacy manifest, ATT, IDFA, BGTaskScheduler, push, App Groups, entitlements, pre-submission checklist).
+- `docs/02-swift-fundamentals/cpp-interop.md`, `rust-ffi.md`, `from-server-langs.md` — BUILD-27/28/30 (C++ interop, Rust FFI, Go/Ruby/PHP).
+- Build guide (`plans/gap-analysis-and-build-guide.md`) updated: all 30 BUILD items (BUILD-1…30) marked ✅ complete; Phase E ✅ COMPLETE.
+
+### Wrapper roadmap (2026-05-04, Phases 1–5 complete)
+
+- `plans/gap-analysis-and-build-guide.md` — capability matrix and roadmap (all 30 BUILD items marked complete).
 - `plans/github-round-trip.md` — wrapper design + delivered command surface (Phases 1–5 all complete).
 - `plans/wrapper-phase-4-conversational-polish.md` + `plans/wrapper-phase-5-open-pr.md`.
 - `plans/agent-interaction-design.md` — three-surface model (CLI / wrapper / Claude Code).

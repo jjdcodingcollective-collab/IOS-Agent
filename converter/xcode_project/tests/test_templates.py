@@ -70,9 +70,10 @@ class TestPlaceholderTokens(unittest.TestCase):
         ):
             self.assertIn(token, text, f"Info.plist.tmpl missing token: {token}")
 
-    def test_app_delegate_template_has_safe_name_token(self) -> None:
+    def test_app_delegate_template_is_valid_swift(self) -> None:
         text = _read("AppDelegate.swift.tmpl")
-        self.assertIn("{{APP_NAME_SAFE}}", text)
+        self.assertIn("@main", text)
+        self.assertIn("UIApplicationDelegate", text)
 
     def test_launch_screen_has_app_name_token(self) -> None:
         text = _read("LaunchScreen.storyboard")

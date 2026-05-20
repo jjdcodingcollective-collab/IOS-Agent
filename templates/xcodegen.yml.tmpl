@@ -13,14 +13,14 @@
 # ADR-0001 mandates XcodeGen as the project-generation tool for MVP.
 #
 # Placeholders (substituted by the emitter):
-#   {{APP_NAME}}            — display name + target name (alphanumerics + spaces)
-#   {{APP_NAME_SAFE}}       — APP_NAME with spaces stripped, used for filenames
-#   {{BUNDLE_ID}}           — full bundle identifier (com.example.<slug>)
-#   {{TEAM_ID}}             — Apple Developer team id (10 chars) or TODO_TEAMID
-#   {{DEPLOYMENT_TARGET}}   — minimum iOS version (default 15.0)
-#   {{SWIFT_VERSION}}       — Swift toolchain version (default 5.9)
-#   {{ENTITLEMENTS_BLOCK}}  — entitlements: { path: ... } or empty
-#   {{CAPABILITY_SETTINGS}} — per-capability build setting overrides
+#   <APP_NAME>            — display name + target name (alphanumerics + spaces)
+#   <APP_NAME_SAFE>       — APP_NAME with spaces stripped, used for filenames
+#   <BUNDLE_ID>           — full bundle identifier (com.example.<slug>)
+#   <TEAM_ID>             — Apple Developer team id (10 chars) or TODO_TEAMID
+#   <DEPLOYMENT_TARGET>   — minimum iOS version (default 15.0)
+#   <SWIFT_VERSION>       — Swift toolchain version (default 5.9)
+#   <ENTITLEMENTS_BLOCK>  — entitlements: { path: ... } or empty
+#   <CAPABILITY_SETTINGS> — per-capability build setting overrides
 
 name: {{APP_NAME_SAFE}}
 options:
