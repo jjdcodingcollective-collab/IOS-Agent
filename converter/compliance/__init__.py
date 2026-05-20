@@ -50,6 +50,14 @@ from .usage_string_auditor import (
     to_usage_findings,
 )
 from .usage_string_auditor import PRODUCER as USAGE_AUDITOR_PRODUCER
+from .ats_scanner import (
+    ATSFinding,
+    scan_all_ats,
+    scan_ats_source,
+    scan_ats_configs,
+    to_ats_findings,
+)
+from .ats_scanner import PRODUCER as ATS_PRODUCER
 
 __all__ = [
     "APIFinding",
@@ -83,4 +91,10 @@ __all__ = [
     "USAGE_AUDITOR_PRODUCER",
     "audit_info_plist",
     "to_usage_findings",
+    "ATSFinding",
+    "ATS_PRODUCER",
+    "scan_all_ats",
+    "scan_ats_source",
+    "scan_ats_configs",
+    "to_ats_findings",
 ]

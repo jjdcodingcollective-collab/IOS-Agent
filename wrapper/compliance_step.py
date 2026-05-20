@@ -27,6 +27,11 @@ from converter.compliance import (
     to_findings,
     to_att_findings,
 )
+from converter.compliance.ats_scanner import (
+    ATSFinding,
+    scan_all_ats,
+    to_ats_findings,
+)
 
 if TYPE_CHECKING:
     from converter.report import ReportBuilder
@@ -46,11 +51,14 @@ class ComplianceResult:
     manifest_path: Path | None
     findings: list[APIFinding]
     att_findings: list[ATTFinding] = None  # type: ignore[assignment]
+    ats_findings: list[ATSFinding] = None  # type: ignore[assignment]
     error: str | None = None
 
     def __post_init__(self) -> None:
         if self.att_findings is None:
             object.__setattr__(self, "att_findings", [])
+        if self.ats_findings is None:
+            object.__setattr__(self, "ats_findings", [])
 
     @property
     def succeeded(self) -> bool:
@@ -92,6 +100,13 @@ def run_compliance_step(
         print(f"warning: {msg}")
         att_findings = []
 
+    try:
+        ats_findings = scan_all_ats(source_dir)
+    except ScannerError as exc:
+        msg = f"ATS scan failed: {exc}"
+        print(f"warning: {msg}")
+        ats_findings = []
+
     manifest_path = output_dir / MANIFEST_FILENAME
     try:
         generate_manifest(
@@ -102,21 +117,24 @@ def run_compliance_step(
     except ManifestError as exc:
         msg = f"privacy manifest generation failed: {exc}"
         print(f"warning: {msg}")
-        return ComplianceResult(manifest_path=None, findings=findings, att_findings=att_findings, error=msg)
+        return ComplianceResult(manifest_path=None, findings=findings, att_findings=att_findings, ats_findings=ats_findings, error=msg)
 
     if report_builder is not None:
         for f in to_findings(findings, source_root=source_dir):
             report_builder.add_blocker(f)
         for f in to_att_findings(att_findings, source_root=source_dir):
             report_builder.add_blocker(f)
+        for f in to_ats_findings(ats_findings, source_root=source_dir):
+            report_builder.add_manual_review(f)
 
-    _print_summary(findings, att_findings, manifest_path, overrides_path, brief=brief)
-    return ComplianceResult(manifest_path=manifest_path, findings=findings, att_findings=att_findings)
+    _print_summary(findings, att_findings, ats_findings, manifest_path, overrides_path, brief=brief)
+    return ComplianceResult(manifest_path=manifest_path, findings=findings, att_findings=att_findings, ats_findings=ats_findings)
 
 
 def _print_summary(
     findings: list[APIFinding],
     att_findings: list[ATTFinding],
+    ats_findings: list[ATSFinding],
     manifest_path: Path,
     overrides_path: Path | None,
     *,
@@ -151,3 +169,13 @@ def _print_summary(
                 print(f"  - direct ATT/IDFA calls: {direct}")
             if transitive:
                 print(f"  - transitive via analytics SDK: {transitive}")
+
+    if ats_findings:
+        n_http = sum(1 for f in ats_findings if f.kind == "http_url")
+        n_arb = sum(1 for f in ats_findings if f.kind == "arbitrary_loads")
+        print(f"ATS: {len(ats_findings)} warning(s) — http:// URLs or allowsArbitraryLoads detected (Layer B)")
+        if not brief:
+            if n_http:
+                print(f"  - hardcoded http:// URLs: {n_http}")
+            if n_arb:
+                print(f"  - allowsArbitraryLoads: {n_arb}")
