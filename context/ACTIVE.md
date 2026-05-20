@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-09 (review/verification session; state confirmed; 260 tests green)
+Last curated: 2026-05-20 (Track 1 smoke test complete; template legend bug fixed; rolling into Track 2)
 
 ## Current State
 
@@ -50,30 +50,30 @@ wrapper`; +27 from §6.2 preflight). The converter command needs the `-t .`
 top-level-dir flag to keep relative imports inside `converter/__init__.py`
 modules resolvable.
 
-**Real-world validation** is still the 2026-05-04 `the-survival-bible`
-run (50/50 structural pass). Step 8 has not yet been run end-to-end
-against a real repo — that is the natural next smoke test.
+**Real-world validation — 2026-05-20 smoke test (Track 1) ✅**
+
+End-to-end run against `the-survival-bible/apps/web` (React + Vite;
+jjdcodingcollective-collab/the-survival-bible, private):
+
+- `preflight`: exit 1, 84 Layer-A `UserDefaults` blockers. ✅
+- `convert --allow-unsupported`: 70 files converted, 63% avg confidence,
+  0 swiftc errors, `PrivacyInfo.xcprivacy` + `project.yml` emitted. ✅
+- `report.json` Layer A: 87 items (84 UserDefaults + 3 xcode.placeholder). ✅
+- Template legend bug found and fixed (`commit 6e2cff3`): legend lines used
+  `{{TOKEN}}` syntax which `_substitute()` replaced with live values. Switched
+  to `<TOKEN>` in all three templates. Broken test updated. 260 green. ✅
+
+Note: this repo has React Native in `apps/mobile` — our Capacitor wrap output
+targets the `apps/web` layer only, which is correct for MVP scope.
 
 ## What's Next
 
-MVP §6.2 (pre-flight scanner) shipped 2026-05-06. `python -m wrapper
-preflight <path>` now scans for App Store compliance issues before any
-conversion runs. Exit codes: 0 = clear, 1 = Layer-A blockers, 2 = scan
-error. 27 new unit tests; 260 total green.
+**Track 2 — MVP §4.x compliance items** is now active.
+Plan at `plans/mvp-section-4-compliance.md`.
 
-Remaining tracks (user picks):
-
-1. **End-to-end smoke run** of the Step 8 XcodeGen emitter against the
-   `the-survival-bible` repo (or another small Capacitor fixture) to
-   confirm `xcodegen generate` works and Layer-A placeholder findings
-   render correctly in the wrapper's triage output.
-2. **MVP gap §4.x compliance items** (ATT detection, SIWA, usage strings,
-   ATS, 4.2 enforcement) — all reuse the Step 6/7 scanner + report
-   substrate; this is the next structured engineering plan.
-3. The still-open documentation question on converter source-language
-   expansion (out-of-scope for MVP per `docs/mvp-scope.md`).
-
-There is no auto-queued next phase; the user picks the next track.
+Remaining open tracks after Track 2:
+- **Ship / publish** — `v0.1.0` tag, PyPI, GitHub Release.
+- **Phase 2 kickoff** — Kotlin → Swift converter expansion (deferred per MVP scope).
 
 ## Relevant Knowledge Refs
 
