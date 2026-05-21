@@ -76,11 +76,11 @@ All five compliance scanners shipped across five commits on 2026-05-20:
 - `980005c` — §4.9 ATS configuration scanner (27 tests)
 - `8c0623e` — §4.2 Minimum functionality heuristic (20 tests)
 
-**§4.6 Encryption export audit** is the one stretch item not yet shipped
-(crypto import patterns → Layer-B note; low-risk, no rejection risk on its own).
+- `793f871` — §4.6 Encryption export scanner (16 tests; `crypto-js`, `SubtleCrypto`, `node-forge`, `tweetnacl`, etc. → Layer-B)
+
+All 6 §4.x steps complete. **379 tests green.**
 
 **Remaining open tracks:**
-- **§4.6** (stretch) — add crypto-import patterns to `api_scanner.py`.
 - **Ship / publish** — `v0.1.0` tag, PyPI, GitHub Release.
 - **Phase 2 kickoff** — Kotlin → Swift converter expansion (deferred per MVP scope).
 
@@ -112,6 +112,8 @@ All five compliance scanners shipped across five commits on 2026-05-20:
 - `converter/compliance/entitlement_scanner.py` — §4.8 SIWA parity: new `siwa_trigger` field, `_apply_siwa_parity()` logic, updated `to_findings()` for trigger message.
 - `wrapper/compliance_step.py` — orchestrates all five scanners; `ComplianceResult` carries `att_findings`, `ats_findings`, `min_func_finding`.
 - `wrapper/xcode_step.py` — runs usage string audit after emit; findings → Layer-A blockers.
+- `converter/compliance/api_scanner.py` — §4.6: extended `to_findings()` to emit Layer-B warnings for `EncryptionExport` category; added `ENCRYPTION_EXPORT_CATEGORY` + `ENCRYPTION_EXPORT_DOC_URL` constants.
+- `config/apple-required-reason-apis.yaml` — §4.6: new `EncryptionExport` pseudo-category with 18 crypto-import patterns.
 - `.github/workflows/test.yml` — Linux + macOS CI; macOS gated to `main` push and `macos-ci` label.
 
 ### Phase E — docs expansion (2026-05-04, BUILD-16…30, complete)

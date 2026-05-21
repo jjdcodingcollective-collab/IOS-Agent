@@ -1,8 +1,8 @@
 # Plan: MVP §4.x Compliance Items
 
-**Status:** Complete — 2026-05-20 (Steps 4.3, 4.8, 4.5, 4.9, 4.2 shipped; §4.6 stretch deferred)
+**Status:** Complete — 2026-05-21 (All 6 steps shipped including §4.6 encryption export)
 **Prerequisite:** Tier 1 complete (Steps 1–8 shipped); smoke test passed 2026-05-20.
-**Test baseline:** 260 green → **363 green** after all steps (240 converter + 123 wrapper).
+**Test baseline:** 260 green → **379 green** after all steps (256 converter + 123 wrapper).
 
 ---
 
@@ -164,7 +164,7 @@ positives are worse than false negatives here.
 
 ---
 
-### Step 4.6 — Encryption export declaration audit (bonus / low-risk) — DEFERRED
+### Step 4.6 — Encryption export declaration audit (bonus / low-risk) ✅ `793f871`
 
 **Not a rejection risk on its own** (our template defaults to `false`), but
 incorrect declarations can trigger export compliance holds. Add as a lightweight
