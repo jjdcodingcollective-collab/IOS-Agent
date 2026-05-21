@@ -1,14 +1,36 @@
-# IOS-Agent
+# ios-agent
 
-> A reference guide **and** an automated converter for teams transitioning from web development (containerized builds, Vercel deployments) to the iOS and Apple ecosystem.
+[![Tests](https://github.com/jjdcodingcollective/ios-agent/actions/workflows/test.yml/badge.svg)](https://github.com/jjdcodingcollective/ios-agent/actions/workflows/test.yml)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)](CHANGELOG.md)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+
+> A reference guide **and** an automated converter for teams taking their web app to the Apple App Store.
 
 **Who this is for:** Web developers who build with modern frameworks (React, Next.js, Vite), deploy on Vercel, and are now bringing their products to native iOS.
 
-**What this covers:** The full journey from web to native — environment setup, Swift fundamentals mapped to web concepts, architecture translation, WebView-based shells (Wrap / Bridge), App Store deployment, and everything in between. Plus a working pipeline that takes your TypeScript codebase and produces a buildable Swift/SwiftUI project.
+**What this covers:** The full journey from web to native — environment setup, Swift fundamentals mapped to web concepts, architecture translation, WebView-based shells (Wrap / Bridge), App Store deployment, and everything in between. Plus a working pipeline that takes your TypeScript codebase and produces a buildable Capacitor iOS project with complete App Store compliance scaffolding.
 
 ---
 
-## The Converter (operational)
+## Install
+
+**Requirements:** Python 3.11+, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`), macOS for Xcode builds.
+
+```bash
+# From PyPI (once published)
+pip install ios-agent
+
+# Or directly from source
+git clone https://github.com/jjdcodingcollective/ios-agent
+cd ios-agent
+pip install -e .
+```
+
+No third-party Python dependencies — the tool uses stdlib only.
+
+---
+
+## The Converter
 
 Two ways to use it:
 
@@ -36,15 +58,15 @@ python -m wrapper convert-from-github https://github.com/you/your-app --push
 python -m wrapper convert-from-github https://github.com/you/your-app --no-push
 ```
 
-The converter writes a Swift project (`Package.swift`, `project.yml` for [xcodegen](https://github.com/yonaskolb/XcodeGen), `Sources/`, `Tests/`) plus five reports under `.ios-conversion/` on the conversion branch. Runs that fail validation or score below 60% confidence land on a `Requires-more-review/` prefixed branch so reviewers can spot them at a glance.
+Each conversion writes into the output directory:
 
-Pipeline:
+- `PrivacyInfo.xcprivacy` — populated from scanner findings
+- `project.yml` — XcodeGen spec (run `xcodegen generate && open *.xcodeproj`)
+- `App/Info.plist` — pre-filled usage string placeholders
+- `App/AppDelegate.swift`, `App/Assets.xcassets`, `App/LaunchScreen.storyboard`
+- `report.md` + `report.json` — Layer A blockers, Layer B manual review, Layer C learnings
 
-```
-TS source → analyzer → reviewer → rewriter → assembler → validator → reports + Swift project
-```
-
-Status: all 15 BUILD-* items shipped (see `plans/gap-analysis-and-build-guide.md`); the wrapper roadmap is **complete through Phase 5**. Phase 1–3 covered clone + convert + local commit + opt-in push (with hard refusal on protected branches, no force-push, and a read-only fallback if credentials are missing). Phase 4 added a pre-flight GitHub repo-metadata banner, a copy-pasteable `gh pr create` command after a successful push (with a compare-URL fallback for users without `gh`), and an educational "what's on this branch" block — all suppressible with `--brief`. Phase 5 wires `--open-pr` (off by default) to invoke `gh pr create` directly with the same `(base, head, title, body-file)` tuple Phase 4 prints, and rejects the incoherent `--no-push --open-pr` combination.
+GitHub round-trip runs land on the `ios-conversion` branch. Runs below 60% confidence land on a `Requires-more-review/` prefixed branch.
 
 ---
 
@@ -150,9 +172,31 @@ The converter (`converter/`, `wrapper/`) remains TypeScript-source only. Expandi
 
 ---
 
-## Last Updated
+## Release History
 
-**2026-05-05** *(Tier 0 complete; Tier 1 Step 6 ✅ complete; Tier 1 Step 7 ✅ complete; Tier 1 Step 8 ✅ complete — entitlement scanner + 12-capability catalogue + XcodeGen spec emitter + 6 templates + wrapper integration + Linux+macOS CI workflow + 36 new tests; 233 total green; Tier 1 closed)* — Senior-iOS-architect review of the whole concept produced a 34-item MVP gap analysis (`/storage/outputs/ios-agent/MVP-Gap-Analysis.md`): 27 BLOCKING + 7 AT-RISK items, binding Definition of Done = actual App Store approval of a tool-converted reference web app. Four new plans landed: `plans/mvp-tier-0-tier-1.md` (parent), `plans/tier-1-step-6-privacy-scanner.md` (Step 6 sub-plan), `plans/tier-1-step-7-three-layer-report.md` (Step 7 sub-plan), and `plans/tier-1-step-8-xcode-project-generation.md` (Step 8 sub-plan).
+See [CHANGELOG.md](CHANGELOG.md) for the full release history.
+
+**v0.1.0 — 2026-05-21** — First public release. Seven compliance scanners,
+XcodeGen project generation, three-layer report, GitHub round-trip, 379 tests.
+
+**Internal milestones (pre-release):**
+
+**2026-05-20** — Track 2 complete: all six §4.x compliance scanners shipped
+(ATT §4.3, SIWA parity §4.8, usage string audit §4.5, ATS §4.9, min
+functionality §4.2, encryption export §4.6). End-to-end smoke test against
+`the-survival-bible/apps/web` passed: 87 Layer-A findings, 0 swiftc errors.
+
+**2026-05-05** — Tier 1 complete: entitlement scanner + 12-capability catalogue,
+XcodeGen spec emitter + 6 templates, pre-flight scanner, three-layer report
+schema + emitter + renderers, wrapper integration, Linux+macOS CI workflow.
+
+**2026-05-04** — Wrapper roadmap complete (Phases 1–5): local convert, GitHub
+round-trip, opt-in push, `--open-pr`, conversational polish. Phase E docs
+expansion complete (30 BUILD items): Swift fundamentals for 7 source languages,
+architecture, UIKit, concurrency, ARC, interop, persistence, deployment.
+
+**2026-04-25** — Initial release covering the web-to-iOS transition path and
+four-phase converter pipeline.
 
 Tier 0 (5 steps, decisions + docs only) shipped end-to-end:
 - Step 1: `docs/mvp-scope.md` — MVP locked to web → Wrap only; explicit exclusions for Java, Kotlin, Python, Bridge, Port, UI translation; 7-criteria Definition of Done; marketing-compliance section bans deprecated mode names and "convert any codebase" copy.
