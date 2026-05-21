@@ -30,6 +30,7 @@ from converter.report import (
 
 from .compatibility import UnsupportedCombination, assert_supported
 from .compliance_step import run_compliance_step
+from .disclaimer import show_and_confirm as _show_disclaimer
 from .explainer import format_branch_explainer
 from .preflight import format_preflight_report, run_preflight
 from .xcode_step import run_xcode_step
@@ -178,6 +179,9 @@ def cmd_convert(args: argparse.Namespace) -> int:
     if gate is not None:
         return gate
 
+    if not _show_disclaimer(assume_yes=args.yes):
+        return 1
+
     source = Path(args.source).resolve()
     if not source.is_dir():
         print(f"error: '{source}' is not a directory", file=sys.stderr)
@@ -281,6 +285,9 @@ def cmd_convert_from_github(args: argparse.Namespace) -> int:
     gate = _gate_combination("web", "wrap", allow_unsupported=args.allow_unsupported)
     if gate is not None:
         return gate
+
+    if not _show_disclaimer(assume_yes=args.yes):
+        return 1
 
     repo_url = args.repo_url
     # --yes implies --push (auto-yes on every prompt), unless the user
