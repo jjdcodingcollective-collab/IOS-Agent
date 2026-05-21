@@ -1,6 +1,6 @@
 # Active Context
 
-Last curated: 2026-05-20 (Track 2 §4.x compliance complete — 5 scanners shipped, 363 green)
+Last curated: 2026-05-21 (v0.1.0 released; §4.6 + disclaimer shipped; master build plan written; 396 green)
 
 ## Current State
 
@@ -44,10 +44,9 @@ shipped 2026-05-05 across five commits:
   `xcodebuild` with `CODE_SIGNING_ALLOWED=NO` against the generated
   project.
 
-**Test totals.** 363 tests green (up from 260): 240 converter + 123 wrapper.
-The converter command needs the `-t .` top-level-dir flag to keep relative
-imports inside `converter/__init__.py` modules resolvable.
-Use `python -m pytest converter/ wrapper/` as the one-shot command.
+**Test totals.** 396 tests green (up from 260 at Tier 1 close):
+256 converter + 140 wrapper (17 disclaimer + existing 123).
+One-shot command: `python -m pytest converter/ wrapper/`
 
 **Real-world validation — 2026-05-20 smoke test (Track 1) ✅**
 
@@ -80,9 +79,21 @@ All five compliance scanners shipped across five commits on 2026-05-20:
 
 All 6 §4.x steps complete. **379 tests green.**
 
-**Remaining open tracks:**
-- **Ship / publish** — `v0.1.0` tag, PyPI, GitHub Release.
-- **Phase 2 kickoff** — Kotlin → Swift converter expansion (deferred per MVP scope).
+**v0.1.0 released 2026-05-21** — tag + GitHub Release live at
+https://github.com/jjdcodingcollective-collab/IOS-Agent/releases/tag/v0.1.0
+
+**Remaining Phase 1 DoD items** (see `plans/master-build-plan.md`):
+
+| Track | What | Status |
+|-------|------|--------|
+| C | Disclaimer scaffold | ✅ Done (`828b080`) — awaiting legal review of text |
+| B | Re-conversion 3-way merge validation scenario | ⬜ Next |
+| A | Reference app → App Store submission + approval | ⬜ Blocked on B |
+
+After Track A approval: flip `config/compatibility-matrix.yaml` `web × wrap`
+to `supported: true` and close Phase 1. Phase 2 (Kotlin/Java) is gated on this.
+
+**Phase 2 kickoff** — deferred per MVP scope; see `plans/master-build-plan.md`.
 
 ## Relevant Knowledge Refs
 
@@ -114,6 +125,15 @@ All 6 §4.x steps complete. **379 tests green.**
 - `wrapper/xcode_step.py` — runs usage string audit after emit; findings → Layer-A blockers.
 - `converter/compliance/api_scanner.py` — §4.6: extended `to_findings()` to emit Layer-B warnings for `EncryptionExport` category; added `ENCRYPTION_EXPORT_CATEGORY` + `ENCRYPTION_EXPORT_DOC_URL` constants.
 - `config/apple-required-reason-apis.yaml` — §4.6: new `EncryptionExport` pseudo-category with 18 crypto-import patterns.
+
+### v0.1.0 Release + Phase 1 DoD tracks (2026-05-21)
+
+- `pyproject.toml` — packaging metadata (stdlib-only, no runtime deps, Python 3.11+).
+- `CHANGELOG.md` — v0.1.0 release notes.
+- `LICENSE` — MIT license.
+- `wrapper/disclaimer.py` — Track C: disclaimer text + sign-off flow. `show_and_confirm()` wired into `cmd_convert` and `cmd_convert_from_github`. Acceptance persisted to `~/.ios-agent/disclaimer-accepted.json` (version-keyed). `DISCLAIMER_VERSION = "1.0"`.
+- `docs/disclaimer.md` — disclaimer text for legal review; sign-off table; engineering notes.
+- `plans/master-build-plan.md` — full Phase 1–5 build plan with DoD tracking table and immediate next actions.
 - `.github/workflows/test.yml` — Linux + macOS CI; macOS gated to `main` push and `macos-ci` label.
 
 ### Phase E — docs expansion (2026-05-04, BUILD-16…30, complete)
