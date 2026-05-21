@@ -364,3 +364,84 @@ categories:
       - pattern_type: ts_import
         pattern: 'react-native-appsflyer'
         default_reason_code: ATT.2
+
+  # ---------------------------------------------------------------------------
+  # Encryption export declaration
+  #
+  # Not an NSPrivacyAccessedAPICategory — this is a separate compliance area.
+  # ITSAppUsesNonExemptEncryption in Info.plist must be set to true if the app
+  # uses non-exempt cryptography. Our template defaults to false (safe for apps
+  # that only use standard HTTPS). If source imports a crypto library that goes
+  # beyond standard TLS, the developer must update the declaration and may need
+  # an ERN (Encryption Registration Number) from the US Bureau of Industry and
+  # Security before shipping internationally.
+  #
+  # Findings are Layer-B (manual review) — not a hard rejection risk on their
+  # own, but an incorrect false declaration is an App Store violation.
+  #
+  # Reference: https://developer.apple.com/documentation/security/complying_with_encryption_export_regulations
+  # ---------------------------------------------------------------------------
+  - id: EncryptionExport
+    category_short: EncryptionExport
+    native_apis: []
+    patterns:
+      # Web Crypto API (built-in browser — always exempt when used only for TLS,
+      # but non-exempt if used for storage encryption, custom protocols, etc.)
+      - pattern_type: js_api
+        pattern: 'crypto.subtle'
+        default_reason_code: 'ENC.1'
+        notes: SubtleCrypto operations beyond standard HTTPS may require non-exempt declaration.
+      - pattern_type: js_api
+        pattern: 'SubtleCrypto'
+        default_reason_code: 'ENC.1'
+      - pattern_type: js_api
+        pattern: 'CryptoKey'
+        default_reason_code: 'ENC.1'
+      - pattern_type: js_api
+        pattern: 'window.crypto.subtle'
+        default_reason_code: 'ENC.1'
+      # Node.js / bundled crypto
+      - pattern_type: ts_import
+        pattern: 'node:crypto'
+        default_reason_code: 'ENC.2'
+      # Third-party crypto libraries
+      - pattern_type: ts_import
+        pattern: 'crypto-js'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'node-forge'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'forge'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'jsencrypt'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'elliptic'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'tweetnacl'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'libsodium-wrappers'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'noble-curves'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: '@noble/curves'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: '@noble/hashes'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'openpgp'
+        default_reason_code: 'ENC.3'
+      - pattern_type: ts_import
+        pattern: 'bcryptjs'
+        default_reason_code: 'ENC.4'
+        notes: bcryptjs is password hashing, not encryption — exempt if used only for password verification, but declare if used for data encryption.
+      - pattern_type: ts_import
+        pattern: 'bcrypt'
+        default_reason_code: 'ENC.4'

@@ -11,6 +11,8 @@ Plan: plans/tier-1-step-6-privacy-scanner.md
 
 from .api_scanner import (
     APIFinding,
+    ENCRYPTION_EXPORT_CATEGORY,
+    ENCRYPTION_EXPORT_DOC_URL,
     PRIVACY_MANIFEST_DOC_URL,
     PRODUCER,
     ScannerError,
@@ -67,6 +69,8 @@ from .min_functionality_checker import PRODUCER as MIN_FUNC_PRODUCER
 
 __all__ = [
     "APIFinding",
+    "ENCRYPTION_EXPORT_CATEGORY",
+    "ENCRYPTION_EXPORT_DOC_URL",
     "PRIVACY_MANIFEST_DOC_URL",
     "PRODUCER",
     "ScannerError",

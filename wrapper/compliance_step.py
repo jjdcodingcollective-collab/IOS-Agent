@@ -129,7 +129,10 @@ def run_compliance_step(
 
     if report_builder is not None:
         for f in to_findings(findings, source_root=source_dir):
-            report_builder.add_blocker(f)
+            if f.severity == "blocker":
+                report_builder.add_blocker(f)
+            else:
+                report_builder.add_manual_review(f)
         for f in to_att_findings(att_findings, source_root=source_dir):
             report_builder.add_blocker(f)
         for f in to_ats_findings(ats_findings, source_root=source_dir):

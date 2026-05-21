@@ -320,6 +320,14 @@ PRIVACY_MANIFEST_DOC_URL = (
     "nsprivacyaccessedapitype"
 )
 
+ENCRYPTION_EXPORT_DOC_URL = (
+    "https://developer.apple.com/documentation/security/"
+    "complying_with_encryption_export_regulations"
+)
+
+# Category id used in config YAML for encryption-export patterns.
+ENCRYPTION_EXPORT_CATEGORY = "EncryptionExport"
+
 # Producer identifier stamped on every Finding emitted from this module.
 PRODUCER = "compliance.api_scanner"
 
@@ -345,11 +353,16 @@ def to_findings(
     out: list[Finding] = []
     counters: dict[str, int] = {}
     for af in api_findings:
+        is_encryption = af.category == ENCRYPTION_EXPORT_CATEGORY
         category_short = af.category.removeprefix("NSPrivacyAccessedAPICategory")
         slug = category_short.lower()
         idx = counters.get(slug, 0)
         counters[slug] = idx + 1
-        finding_id = f"compliance.privacy-manifest.{slug}#{idx}"
+
+        if is_encryption:
+            finding_id = f"compliance.encryption-export.{slug}#{idx}"
+        else:
+            finding_id = f"compliance.privacy-manifest.{slug}#{idx}"
 
         if af.pattern_type == "capacitor_plugin":
             file_str = "(plugins)"
@@ -372,22 +385,52 @@ def to_findings(
             else:
                 file_str = str(af.file)
             line = af.line
-            reason = (
-                f"Source uses `{af.pattern}`, which Apple classifies as "
-                f"{category_short} (required-reason API)."
-            )
+            if is_encryption:
+                reason = (
+                    f"Source imports `{af.pattern}`, a non-exempt cryptography "
+                    f"library. The generated Info.plist sets "
+                    f"`ITSAppUsesNonExemptEncryption = false` by default. "
+                    f"If your app uses this library for storage encryption, "
+                    f"custom protocols, or any purpose beyond standard HTTPS/TLS, "
+                    f"you must change that value to `true` before submitting — "
+                    f"a false declaration is an App Store violation and may "
+                    f"trigger export compliance holds."
+                )
+            else:
+                reason = (
+                    f"Source uses `{af.pattern}`, which Apple classifies as "
+                    f"{category_short} (required-reason API)."
+                )
 
-        recommended_fix = (
-            f"Confirm the manifest entry's reason code (`{af.reason_code}`) "
-            f"matches the actual use, or add an override in "
-            f"`privacy-overrides.yaml`."
-        )
+        if is_encryption:
+            recommended_fix = (
+                f"1. Audit whether `{af.pattern}` is used beyond standard HTTPS/TLS "
+                f"(e.g. encrypting stored data, implementing custom protocols, "
+                f"performing key exchange).\n"
+                f"2. If yes: set `ITSAppUsesNonExemptEncryption = true` in Info.plist "
+                f"and complete an Encryption Registration (ERN) with the US Bureau of "
+                f"Industry and Security before your first international submission.\n"
+                f"3. If no (only used for TLS): no change needed; document the "
+                f"reasoning in your App Review notes."
+            )
+            doc_link = ENCRYPTION_EXPORT_DOC_URL
+            severity = "warning"
+            category_str = f"compliance.encryption-export.{slug}"
+        else:
+            recommended_fix = (
+                f"Confirm the manifest entry's reason code (`{af.reason_code}`) "
+                f"matches the actual use, or add an override in "
+                f"`privacy-overrides.yaml`."
+            )
+            doc_link = PRIVACY_MANIFEST_DOC_URL
+            severity = "blocker"
+            category_str = f"compliance.privacy-manifest.{slug}"
 
         out.append(
             Finding(
                 id=finding_id,
-                category=f"compliance.privacy-manifest.{slug}",
-                severity="blocker",
+                category=category_str,
+                severity=severity,
                 producer=PRODUCER,
                 file=file_str,
                 line=line,
@@ -395,7 +438,7 @@ def to_findings(
                 attempted_translation=None,
                 reason=reason,
                 recommended_fix=recommended_fix,
-                doc_link=PRIVACY_MANIFEST_DOC_URL,
+                doc_link=doc_link,
             )
         )
     return out
